@@ -1,0 +1,371 @@
+{# === work_log.html (Sửa lỗi Jinja + Thêm nút Xem) === #}
+{% extends 'base.html' %}
+
+{% block title %}Quản Lý Nhật Ký Công Việc{% endblock %}
+
+{% block content %}
+<div class="container-fluid"> {# Sử dụng container-fluid để rộng hơn nếu cần #}
+    <h1 class="mb-4">Quản Lý Nhật Ký Công Việc</h1>
+
+    {# --- Hiển thị Flash Messages --- #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {# === START: CẤU TRÚC COLLAPSE MỚI === #}
+    <div class="mb-4"> {# Container cho các nút và vùng collapse #}
+        {# Hàng chứa các nút bấm để mở collapse #}
+        <div class="d-flex gap-2 mb-2 flex-wrap">
+            <button class="btn btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+                <i class="bi bi-funnel-fill me-1"></i> Hiện/Ẩn Lọc & Nhập/Xuất
+            </button>
+            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#addCollapse" aria-expanded="false" aria-controls="addCollapse">
+                <i class="bi bi-plus-circle-fill me-1"></i> Hiện/Ẩn Form Thêm Mới
+            </button>
+        </div>
+
+        {# --- Vùng Collapse cho Lọc/Tìm Kiếm/Nhập/Xuất --- #}
+        <div class="collapse" id="filterCollapse">
+            <div class="card card-body bg-light border">
+                <h5 class="mb-3"><i class="bi bi-funnel-fill me-2"></i>Bộ Lọc / Tìm Kiếm Nhật Ký</h5>
+                <form action="{{ url_for('work_log') }}" method="get" class="row g-3 align-items-end">
+                    <div class="col-md-4 col-lg-3">
+                        <label for="start_date_filter" class="form-label">Từ Ngày</label>
+                        <input type="date" class="form-control form-control-sm" id="start_date_filter" name="start_date_filter" value="{{ filters_form.start_date_filter }}">
+                    </div>
+                    <div class="col-md-4 col-lg-3">
+                        <label for="end_date_filter" class="form-label">Đến Ngày</label>
+                        <input type="date" class="form-control form-control-sm" id="end_date_filter" name="end_date_filter" value="{{ filters_form.end_date_filter }}">
+                    </div>
+                    <div class="col-md-4 col-lg-4">
+                        <label for="keyword_filter" class="form-label">Từ khóa chung</label>
+                        <input type="text" class="form-control form-control-sm" id="keyword_filter" name="keyword" value="{{ filters.keyword or '' }}" placeholder="Tìm loại, thiết bị, mô tả, người làm...">
+                    </div>
+                    <div class="col-lg-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary btn-sm me-2 flex-grow-1">
+                            <i class="bi bi-search me-1"></i> Lọc
+                        </button>
+                        {% if filters.start_date_filter or filters.end_date_filter or filters.keyword %}
+                            <a href="{{ url_for('work_log') }}" class="btn btn-outline-danger btn-sm" title="Xóa bộ lọc">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                     <datalist id="activity_types_datalist">
+                        {% for type in activity_types %}
+                            <option value="{{ type }}">
+                        {% endfor %}
+                    </datalist>
+                </form>
+
+                <div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <form action="{{ url_for('import_work_logs') }}" method="post" enctype="multipart/form-data" class="d-inline-block">
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control" name="file" required accept=".xlsx" title="Chọn file Excel (.xlsx)">
+                                <button class="btn btn-outline-primary" type="submit" title="Nhập dữ liệu từ file Excel">
+                                    <i class="fas fa-file-upload me-1"></i> Nhập Excel
+                                </button>
+                            </div>
+                            <div class="form-text small">
+                                Cần cột: Log Date*, Activity Type*, Description, Device Identifier, Cost, Technician, Image Paths (tên file cách nhau bởi dấu phẩy).
+                            </div>
+                        </form>
+                    </div>
+                    <div>
+                        {% if logs or (filters.start_date_filter or filters.end_date_filter or filters.keyword) %}
+                           <a href="{{ url_for('export_filtered_work_logs',
+                                               start_date_filter=filters.start_date_filter,
+                                               end_date_filter=filters.end_date_filter,
+                                               keyword=filters.keyword) }}"
+                              class="btn btn-success btn-sm">
+                               <i class="fas fa-file-excel me-1"></i> Xuất danh sách (Excel)
+                           </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Vùng Collapse cho Thêm Mới --- #}
+        <div class="collapse mt-2" id="addCollapse">
+             <div class="card card-body border">
+                <h5 class="mb-3"><i class="bi bi-plus-circle-fill me-2"></i>Thêm Nhật Ký Công Việc Mới</h5>
+                <form action="{{ url_for('add_work_log') }}" method="post" enctype="multipart/form-data">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label for="log_date_add" class="form-label">Ngày Thực Hiện <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="log_date_add" name="log_date" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="activity_type_add" class="form-label">Loại Hoạt Động <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="activity_type_add" name="activity_type" list="activity_types_datalist" required placeholder="VD: Bảo trì, Sửa chữa, Mua mới...">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="device_identifier_add" class="form-label">Định Danh Thiết Bị</label>
+                            <input type="text" class="form-control" id="device_identifier_add" name="device_identifier" placeholder="MAC Address hoặc tên gợi nhớ">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                         <div class="col-md-6">
+                            <label for="description_add" class="form-label">Mô Tả Chi Tiết</label>
+                            <textarea class="form-control" id="description_add" name="description" rows="3" placeholder="Mô tả công việc đã thực hiện..."></textarea>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="cost_add" class="form-label">Chi Phí</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="cost_add" name="cost" step="any" min="0" placeholder="0" value="0">
+                                 <span class="input-group-text">₫</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="technician_add" class="form-label">Nhà cung cấp</label>
+                            <input type="text" class="form-control" id="technician_add" name="technician">
+                        </div>
+                    </div>
+                     <div class="row g-3 mb-3">
+                         <div class="col-12">
+                             <label for="add_log_images_add" class="form-label">Ảnh đính kèm</label>
+                             <input type="file" class="form-control" id="add_log_images_add" name="images" multiple accept=".png,.jpg,.jpeg,.gif">
+                             <div class="form-text">Có thể chọn nhiều ảnh. Cho phép: PNG, JPG, JPEG, GIF.</div>
+                         </div>
+                     </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-plus-lg me-1"></i> Thêm Nhật Ký
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {# --- Bảng Danh Sách Nhật Ký --- #}
+    <div class="card shadow-sm">
+         <div class="card-header bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+             <h5 class="mb-0 me-auto"><i class="bi bi-list-ul me-2"></i>Danh Sách Nhật Ký Công Việc</h5>
+             <div class="d-flex align-items-center gap-2">
+                 <span class="badge bg-secondary rounded-pill">{{ pagination.total if pagination else total_logs | default(0) }} mục</span>
+                 {% if pagination and pagination.total > 0 %}
+                 <button type="button" class="btn btn-danger-custom" data-bs-toggle="modal" data-bs-target="#deleteAllWorkLogsModal" title="Xóa toàn bộ dữ liệu nhật ký">
+                     <i class="fas fa-exclamation-triangle me-1"></i> Xóa Toàn Bộ
+                 </button>
+                 {% endif %}
+             </div>
+         </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0 table-work-log align-middle">
+                     <thead class="table-light sticky-top">
+                        <tr>
+                            <th scope="col" class="text-center" style="width: 5%;">#</th>
+                            <th scope="col" style="width: 10%;">Ngày</th>
+                            <th scope="col" style="width: 15%;">Loại Hoạt Động</th>
+                            <th scope="col" style="width: 15%;">Định Danh TB</th>
+                            <th scope="col">Mô Tả</th>
+                            <th scope="col" style="width: 8%;" class="text-end">Chi Phí</th>
+                            <th scope="col" style="width: 10%;">Nhà cung cấp</th>
+                            <th scope="col" class="text-center" style="width: 7%;">Ảnh</th>
+                            <th scope="col" class="text-center" style="width: 12%;">Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                         {% if logs %}
+                            {% for log in logs %}
+                                <tr>
+                                    <td class="text-center">{{ loop.index + pagination.first - 1 if pagination else loop.index }}</td>
+                                    <td>{{ log.log_date_display }}</td>
+                                    <td>{{ log.activity_type }}</td>
+                                    <td><code>{{ log.device_identifier or '' }}</code></td>
+                                    <td>{{ log.description | nl2br | truncate(80, True) if log.description else '' }}</td>
+                                    <td class="text-end cost-value">{{ log.cost | currency_format }}</td>
+                                    <td>{{ log.technician or '' }}</td>
+                                    <td class="text-center">
+                                        {% if log.first_image_path %}
+                                            <a href="{{ url_for('uploaded_file', filename=log.first_image_path) }}" target="_blank" title="Xem ảnh đầu tiên">
+                                                <img src="{{ url_for('uploaded_file', filename=log.first_image_path) }}" class="img-thumbnail-small" alt="Ảnh Log">
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted small">(K/có)</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm" role="group" aria-label="Work Log Actions">
+                                            <a href="{{ url_for('view_work_log_detail', log_id=log.id, log_page=log_page, start_date_filter=filters.start_date_filter, end_date_filter=filters.end_date_filter, keyword=filters.keyword) }}" class="btn btn-outline-info" title="Xem chi tiết">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('edit_work_log', log_id=log.id, log_page=log_page, start_date_filter=filters.start_date_filter, end_date_filter=filters.end_date_filter, keyword=filters.keyword) }}" class="btn btn-outline-primary" title="Chỉnh sửa">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteLogModal-{{ log.id }}" title="Xóa">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <div class="modal fade" id="deleteLogModal-{{ log.id }}" tabindex="-1" aria-labelledby="deleteLogModalLabel-{{ log.id }}" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="deleteLogModalLabel-{{ log.id }}">Xác nhận Xóa Nhật Ký</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <form action="{{ url_for('delete_work_log', log_id=log.id) }}" method="post">
+                                                        <div class="modal-body text-start">
+                                                            <p>Bạn có chắc chắn muốn xóa nhật ký công việc này?</p>
+                                                            <ul>
+                                                                <li><strong>Ngày:</strong> {{ log.log_date_display }}</li>
+                                                                <li><strong>Loại:</strong> {{ log.activity_type }}</li>
+                                                                {% if log.device_identifier %}
+                                                                <li><strong>Thiết bị:</strong> <code>{{ log.device_identifier }}</code></li>
+                                                                {% endif %}
+                                                            </ul>
+                                                            <p class="text-danger">Hành động này không thể hoàn tác.</p>
+                                                            {% if log.images %}
+                                                            <div class="form-check mt-3">
+                                                                <input class="form-check-input" type="checkbox" value="yes" id="delete_physical_files_log_{{ log.id }}" name="delete_physical_files">
+                                                                <label class="form-check-label" for="delete_physical_files_log_{{ log.id }}">
+                                                                    Đồng thời xóa các file ảnh vật lý liên quan khỏi máy chủ? (Mặc định là KHÔNG xóa)
+                                                                </label>
+                                                            </div>
+                                                            {% endif %}
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                                                            <button type="submit" class="btn btn-danger">
+                                                                <i class="bi bi-trash-fill me-1"></i> Xác nhận Xóa
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-muted">
+                                    {% if filters.start_date_filter or filters.end_date_filter or filters.keyword %}
+                                        Không tìm thấy nhật ký nào phù hợp với bộ lọc của bạn. <a href="{{ url_for('work_log') }}">Xóa bộ lọc?</a>
+                                    {% else %}
+                                        Chưa có nhật ký công việc nào trong cơ sở dữ liệu. Hãy thêm nhật ký mới hoặc lọc/tìm kiếm.
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if pagination and pagination.pages > 1 %}
+        <div class="card-footer bg-light">
+             <nav aria-label="Page navigation Log">
+                 <ul class="pagination justify-content-center mb-0">
+                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('work_log', log_page=1, **filters) }}" aria-label="First"> <span aria-hidden="true">&laquo;&laquo;</span> </a> </li>
+                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('work_log', log_page=pagination.prev_num, **filters) }}" aria-label="Previous"> <span aria-hidden="true">&laquo;</span> </a> </li>
+                     {% for p_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p_num %}
+                            {% if p_num == pagination.page %}
+                                <li class="page-item active" aria-current="page"><span class="page-link">{{ p_num }}</span></li>
+                            {% else %}
+                                <li class="page-item"><a class="page-link" href="{{ url_for('work_log', log_page=p_num, **filters) }}">{{ p_num }}</a></li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                     {% endfor %}
+                     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('work_log', log_page=pagination.next_num, **filters) }}" aria-label="Next"> <span aria-hidden="true">&raquo;</span> </a> </li>
+                      <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('work_log', log_page=pagination.pages, **filters) }}" aria-label="Last"> <span aria-hidden="true">&raquo;&raquo;</span> </a> </li>
+                 </ul>
+             </nav>
+             <p class="text-center text-muted small mt-2 mb-0">Trang {{ pagination.page }} / {{ pagination.pages }} (Tổng cộng {{ pagination.total }} nhật ký)</p>
+        </div>
+        {% endif %}
+    </div>
+
+     <div class="modal fade" id="deleteAllWorkLogsModal" tabindex="-1" aria-labelledby="deleteAllWorkLogsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-danger">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteAllWorkLogsModalLabel"><i class="fas fa-exclamation-triangle me-2"></i>Xác Nhận Xóa Toàn Bộ Nhật Ký</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('delete_all_work_logs') }}" method="post">
+                    <div class="modal-body">
+                        <p class="text-danger fw-bold">CẢNH BÁO! Hành động này KHÔNG THỂ hoàn tác.</p>
+                        <p>Bạn có chắc chắn muốn xóa <strong>TOÀN BỘ</strong> nhật ký công việc khỏi hệ thống không? Điều này bao gồm tất cả thông tin chi tiết và các liên kết ảnh.</p>
+                        <div class="mb-3">
+                            <label for="deletePasswordWorkLogs" class="form-label">Nhập mật khẩu xác nhận:</label>
+                            <input type="password" class="form-control" id="deletePasswordWorkLogs" name="password" required autocomplete="current-password">
+                            <div class="form-text">Nhập mật khẩu đã được cấu hình trong file `app.py` để xác nhận xóa.</div>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" value="yes" id="deletePhysicalFilesWorkLogs" name="delete_physical_files">
+                            <label class="form-check-label" for="deletePhysicalFilesWorkLogs">
+                                <strong>Đồng thời xóa tất cả các file ảnh vật lý liên quan khỏi máy chủ?</strong> (Mặc định là KHÔNG xóa)
+                            </label>
+                            <div class="form-text text-muted">Nếu chọn, tất cả file ảnh trong thư mục `uploads` liên kết với các nhật ký sẽ bị xóa vĩnh viễn. Hãy chắc chắn bạn đã sao lưu nếu cần.</div>
+                        </div>
+                        <p class="text-danger">Hãy chắc chắn bạn hiểu rõ hậu quả trước khi tiếp tục.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-1"></i> Xác Nhận Xóa Toàn Bộ
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .table-work-log .img-thumbnail-small {
+        max-width: 40px;
+        max-height: 40px;
+        object-fit: cover;
+        border-radius: 0.25rem;
+        vertical-align: middle;
+    }
+     @media (max-width: 767.98px) {
+        .d-flex.justify-content-between.align-items-center.flex-wrap {
+            justify-content: center !important;
+        }
+    }
+     @media (max-width: 575.98px) {
+        .card-header.d-flex.justify-content-between {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+         .card-header .d-flex.align-items-center.gap-2 {
+             margin-top: 0.5rem;
+             width: 100%;
+             justify-content: space-between;
+         }
+    }
+    .collapse {
+        transition: height 0.35s ease;
+    }
+    .cost-value {
+        font-weight: 500;
+        color: var(--bs-success);
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+```
+
+Sau khi cập nhật file `work_log.html` này, hãy thử chạy lại ứng dụng. Lỗi Jinja nên được giải quyết.
+
+Về cảnh báo `WARNING:root:numpy_financial chưa được cài đặt...`, như đã thảo luận, bạn có thể cài đặt thư viện này bằng `pip install numpy-financial` và cập nhật file `requirements.txt` để loại bỏ cảnh báo này nếu ứng dụng của bạn thực sự cần nó cho các tính năng kh

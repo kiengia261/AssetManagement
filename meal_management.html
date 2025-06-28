@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+
+{% block title %}Quản lý Suất Ăn{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .upload-section {
+        background-color: #f8f9fa;
+        padding: 2rem;
+        border-radius: 0.5rem;
+        border: 1px solid #dee2e6;
+        margin-bottom: 2rem;
+    }
+    .form-label {
+        font-weight: 500;
+    }
+    .btn-process {
+        background-color: #007bff;
+        color: white;
+    }
+    .btn-process:hover {
+        background-color: #0056b3;
+        color: white;
+    }
+    .btn-export-specific, .btn-export-current { /* Thêm style cho nút mới */
+        background-color: #17a2b8; /* Info color */
+        color: white;
+        margin-left: 0.5rem; /* Thêm margin cho nút mới */
+    }
+    .btn-export-specific:hover, .btn-export-current:hover {
+        background-color: #117a8b;
+        color: white;
+    }
+    .instructions {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    .instructions ul {
+        padding-left: 1.2rem;
+        margin-bottom: 0;
+    }
+    .instructions li {
+        margin-bottom: 0.25rem;
+    }
+    .summary-table th, .report-table th {
+        background-color: #e9ecef;
+    }
+    .report-section {
+        margin-top: 2.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #dee2e6;
+    }
+    .report-actions { /* Style cho khu vực chứa nút export mới */
+        margin-bottom: 1.5rem;
+        text-align: right;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+    .pagination .page-link {
+        color: #007bff;
+    }
+    .pagination .page-link:hover {
+        color: #0056b3;
+    }
+    .pagination .page-item.disabled .page-link {
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4"><i class="fas fa-utensils me-2"></i>Quản lý Suất Ăn</h1>
+
+    {# Hiển thị Flash Messages #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="upload-section shadow-sm">
+        <h5 class="mb-3">Tải lên File Dữ liệu</h5>
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('meal_management_dashboard') }}" id="mealUploadForm">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="file_dang_ky" class="form-label">1. File Tổng hợp đăng kí suất ăn (.xlsx) <span class="text-muted">(Tùy chọn)</span></label>
+                    <input class="form-control" type="file" id="file_dang_ky" name="file_dang_ky" accept=".xlsx">
+                    <small class="form-text text-muted instructions">
+                        <p class="mb-1 mt-1"><strong>Cấu trúc cột gợi ý (nếu dùng):</strong></p>
+                        <ul>
+                            <li><strong>Ngày đăng ký</strong> (dd/mm/yyyy hoặc yyyy-mm-dd)</li>
+                            <li><strong>Ca đăng ký</strong> (Ví dụ: "Ca sáng", "Ca chiều")</li>
+                            <li><strong>Mã nhân viên</strong></li>
+                            <li><strong>Số suất đăng ký</strong> (Số lượng)</li>
+                            <li>Phân loại xưởng, Bộ phận (Tùy chọn thêm)</li>
+                        </ul>
+                    </small>
+                </div>
+                <div class="col-md-6">
+                    <label for="file_cham_cong" class="form-label">2. File Kết quả trích xuất từ phần mềm chấm công (.xlsx)</label>
+                    <input class="form-control" type="file" id="file_cham_cong" name="file_cham_cong" accept=".xlsx">
+                    <small class="form-text text-muted instructions">
+                        <p class="mb-1 mt-1"><strong>Cấu trúc cột yêu cầu:</strong></p>
+                        <ul>
+                            <li><strong>Date</strong> (Ngày giờ chấm công)</li>
+                            <li>Device ID</li>
+                            <li>Device</li>
+                            <li><strong>Event</strong> (Sự kiện, ví dụ chứa "Success")</li>
+                            <li>T&A Event</li>
+                            <li><strong>User ID</strong> (Mã nhân viên)</li>
+                            <li><strong>User</strong> (Tên nhân viên)</li>
+                            <li>Status</li>
+                        </ul>
+                         <p class="mb-0">Từ khóa "Success" (không phân biệt hoa thường) trong cột 'Event' sẽ được dùng để xác định lượt chấm công thành công.</p>
+                    </small>
+                </div>
+            </div>
+            <div class="mt-4 text-center">
+                <button type="submit" name="process_and_report_default" class="btn btn-process btn-lg me-2">
+                    <i class="fas fa-cogs me-2"></i> Xử lý & Tạo Báo Cáo (Mặc định)
+                </button>
+                <button type="submit" name="export_excel_timekeeping_only" class="btn btn-export-specific btn-lg">
+                    <i class="fas fa-file-excel me-2"></i> Xử lý & Xuất Excel (Chỉ Chấm Công)
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {# --- Khu vực hiển thị cho logic MỚI (chỉ File Chấm Công) --- #}
+    {% if processing_mode == 'timekeeping_only' %}
+        {# Thêm nút Xuất Excel cho báo cáo hiện tại nếu có dữ liệu #}
+        {% if report1_data or report2_data %}
+        <div class="report-actions">
+            <a href="{{ url_for('export_current_meal_report') }}" class="btn btn-export-current btn-sm">
+                <i class="fas fa-download me-2"></i> Xuất Báo Cáo Hiện Tại ra Excel
+            </a>
+        </div>
+        {% endif %}
+
+        {# Báo cáo 1: Chi tiết chấm công thành công #}
+        {% if report1_data %}
+        <div class="report-section">
+            <h4 class="mb-3">Báo cáo 1: Chi tiết Chấm công Thành công</h4>
+            <div class="table-responsive shadow-sm">
+                <table class="table table-bordered table-striped table-hover report-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Số thứ tự</th>
+                            <th>Ngày giờ</th>
+                            <th>Mã nhân viên</th>
+                            <th>Họ tên</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in report1_data %}
+                        <tr>
+                            <td>{{ row['Số thứ tự'] }}</td>
+                            <td>{{ row['Ngày giờ'] }}</td>
+                            <td>{{ row['Mã nhân viên'] }}</td>
+                            <td>{{ row['Họ tên'] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {# Phân trang cho Báo cáo 1 #}
+            {% if report1_pagination and report1_pagination.pages > 1 %}
+            <nav aria-label="Page navigation report1">
+                <ul class="pagination justify-content-center mt-3">
+                    <li class="page-item {% if not report1_pagination.has_prev %}disabled{% endif %}">
+                        {# Sửa href để chỉ truyền 'page', các filter khác (nếu có) sẽ được giữ từ URL hiện tại bởi JavaScript #}
+                        <a class="page-link" href="{{ url_for('meal_management_dashboard', page=report1_pagination.prev_num) }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% for p_num in report1_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p_num %}
+                            <li class="page-item {% if report1_pagination.page == p_num %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('meal_management_dashboard', page=p_num) }}">{{ p_num }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item {% if not report1_pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('meal_management_dashboard', page=report1_pagination.next_num) }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <p class="text-center text-muted small">Hiển thị {{ report1_data|length }} của {{ report1_pagination.total }} bản ghi.</p>
+            {% elif report1_data %}
+                 <p class="text-center text-muted small">Tổng số: {{ report1_data|length }} bản ghi.</p>
+            {% endif %}
+        </div>
+        {% elif request.method == 'POST' and processing_mode == 'timekeeping_only' %}
+            <div class="alert alert-info mt-4" role="alert">
+                Không có dữ liệu chấm công thành công để hiển thị cho Báo cáo 1.
+            </div>
+        {% endif %}
+
+        {# Báo cáo 2: Tóm lược suất ăn theo ca #}
+        {% if report2_data %}
+        <div class="report-section">
+            <h4 class="mb-3">Báo cáo 2: Tóm lược Suất ăn theo Ca</h4>
+            <div class="table-responsive shadow-sm">
+                <table class="table table-bordered table-striped table-hover report-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ngày</th>
+                            <th>Ca</th>
+                            <th class="text-end">Số lượng người đăng kí</th>
+                            <th class="text-end">Số lượng người thực tế</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in report2_data %}
+                        <tr>
+                            <td>{{ row['Ngày'] }}</td>
+                            <td>{{ row['Ca'] }}</td>
+                            <td class="text-end">N/A</td>
+                            <td class="text-end">{{ row['Số lượng người thực tế']|int }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% elif request.method == 'POST' and processing_mode == 'timekeeping_only' %}
+            <div class="alert alert-info mt-4" role="alert">
+                Không có dữ liệu tóm lược theo ca để hiển thị cho Báo cáo 2.
+            </div>
+        {% endif %}
+    {% endif %}
+
+
+    {# --- Khu vực hiển thị cho logic CŨ (Đối chiếu 2 file) --- #}
+    {% if processing_mode == 'both_files' and summary_data is not none and not summary_data.empty %}
+    {# ... (Giữ nguyên khối hiển thị logic cũ của bạn ở đây) ... #}
+    <div class="report-section">
+        <h4 class="mb-3">Kết Quả Tóm Tắt Đối Chiếu Suất Ăn (2 Files)</h4>
+        {# Thêm nút Xuất Excel cho báo cáo này nếu muốn #}
+        {# <div class="report-actions">
+            <a href="{{ url_for('export_current_meal_report') }}" class="btn btn-export-current btn-sm">
+                <i class="fas fa-download me-2"></i> Xuất Báo Cáo Hiện Tại (2 Files) ra Excel
+            </a>
+        </div> #}
+        <div class="table-responsive shadow-sm">
+            <table class="table table-bordered table-striped table-hover summary-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Phân loại xưởng</th>
+                        <th>Bộ phận</th>
+                        <th class="text-end">Suất Đăng Ký</th>
+                        <th class="text-end">Đi Ăn Thực Tế</th>
+                        <th class="text-end">Check-in Lỗi (Bộ Phận)</th>
+                        <th class="text-end">Chênh Lệch (Thực Tế - ĐK)</th>
+                        <th class="text-end">Tỷ Lệ Tham Gia (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for index, row in summary_data.iterrows() %}
+                    <tr>
+                        <td>{{ row['Phân loại xưởng'] }}</td>
+                        <td>{{ row['Bộ phận'] }}</td>
+                        <td class="text-end">{{ row['Tổng Suất Đăng Ký']|int if row['Tổng Suất Đăng Ký'] is not none else 0 }}</td>
+                        <td class="text-end">{{ row['Đi Ăn Thực Tế']|int if row['Đi Ăn Thực Tế'] is not none else 0 }}</td>
+                        <td class="text-end">{{ row['Check-in Lỗi (Bộ Phận)']|int if row['Check-in Lỗi (Bộ Phận)'] is not none else 0 }}</td>
+                        <td class="text-end {% if row['Chênh Lệch (Thực Tế - ĐK)'] < 0 %}text-danger fw-bold{% elif row['Chênh Lệch (Thực Tế - ĐK)'] > 0 %}text-success fw-bold{% endif %}">
+                            {{ row['Chênh Lệch (Thực Tế - ĐK)']|int if row['Chênh Lệch (Thực Tế - ĐK)'] is not none else 0 }}
+                        </td>
+                        <td class="text-end">
+                            {% if row['Tỷ Lệ Tham Gia (%)'] is not none %}
+                                {{ "%.2f"|format(row['Tỷ Lệ Tham Gia (%)']) }}%
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if summary_data.shape[0] > 1 %}
+                    <tr class="table-group-divider">
+                        <td colspan="2" class="fw-bold">TỔNG CỘNG</td>
+                        <td class="text-end fw-bold">{{ summary_data['Tổng Suất Đăng Ký'].sum()|int }}</td>
+                        <td class="text-end fw-bold">{{ summary_data['Đi Ăn Thực Tế'].sum()|int }}</td>
+                        <td class="text-end fw-bold">{{ summary_data['Check-in Lỗi (Bộ Phận)'].sum()|int }}</td>
+                        <td class="text-end fw-bold {% if summary_data['Chênh Lệch (Thực Tế - ĐK)'].sum() < 0 %}text-danger{% elif summary_data['Chênh Lệch (Thực Tế - ĐK)'].sum() > 0 %}text-success{% endif %}">
+                            {{ summary_data['Chênh Lệch (Thực Tế - ĐK)'].sum()|int }}
+                        </td>
+                        <td class="text-end fw-bold">
+                            {% set total_registered_for_percent = summary_data['Tổng Suất Đăng Ký'].sum() %}
+                            {% set total_actual_for_percent = summary_data['Đi Ăn Thực Tế'].sum() %}
+                            {% if total_registered_for_percent > 0 %}
+                                {{ "%.2f"|format((total_actual_for_percent / total_registered_for_percent * 100)) }}%
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif request.method == 'POST' and processing_mode == 'both_files' and (summary_data is none or summary_data.empty) %}
+     <div class="alert alert-warning mt-4" role="alert">
+        Không có dữ liệu tóm tắt (cho cả 2 file) để hiển thị sau khi xử lý. Vui lòng kiểm tra lại file đầu vào hoặc kết quả xử lý.
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Script để hiển thị tên file đã chọn (nếu cần)
+        const fileInputs = document.querySelectorAll('input[type="file"]');
+        fileInputs.forEach(function(input) {
+            input.addEventListener('change', function(e) {
+                let fileName = e.target.files[0] ? e.target.files[0].name : 'Chưa chọn file';
+                console.log(input.id + ' selected: ' + fileName);
+            });
+        });
+
+        // Xử lý việc truyền tham số phân trang khi form được submit (để giữ lại page khi submit form)
+        // Tuy nhiên, với link phân trang (GET request), Flask sẽ tự xử lý request.args.get('page')
+        // Đoạn script này có thể không cần thiết cho việc click link phân trang,
+        // nhưng có thể hữu ích nếu bạn có các filter khác trong form và muốn giữ lại page khi submit form đó.
+        const mealUploadForm = document.getElementById('mealUploadForm');
+        if (mealUploadForm) {
+            mealUploadForm.addEventListener('submit', function(event) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentPage = urlParams.get('page');
+                
+                // Chỉ thêm input 'page' ẩn nếu đang submit form và có currentPage trên URL
+                // Điều này tránh việc thêm 'page' khi click link phân trang (vì đó là GET request)
+                // Hoặc khi submit lần đầu không có 'page' trên URL.
+                if (currentPage && event.submitter) { // event.submitter để kiểm tra xem có phải là submit form không
+                    let pageInput = mealUploadForm.querySelector('input[name="page"]');
+                    if (!pageInput) {
+                        pageInput = document.createElement('input');
+                        pageInput.type = 'hidden';
+                        pageInput.name = 'page';
+                        mealUploadForm.appendChild(pageInput);
+                    }
+                    pageInput.value = currentPage;
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

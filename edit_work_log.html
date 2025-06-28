@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Chỉnh Sửa Nhật Ký Công Việc #{{ log.id }}{% endblock %}
+
+{% block content %}
+<div class="container"> {# Sử dụng container thay vì container-fluid để căn giữa hơn #}
+    <h1 class="mb-4">Chỉnh Sửa Nhật Ký Công Việc #{{ log.id }}</h1>
+
+    {# --- Hiển thị Flash Messages --- #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {# --- Form Chỉnh Sửa --- #}
+    <div class="card shadow-sm work-log-card">
+         <div class="card-header bg-secondary text-white">
+             <h5 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Thông Tin Nhật Ký</h5>
+        </div>
+        <div class="card-body">
+            {# <<< THÊM: enctype="multipart/form-data" >>> #}
+            <form action="{{ url_for('update_work_log', log_id=log.id) }}" method="post" enctype="multipart/form-data">
+                {# --- Các trường thông tin cơ bản --- #}
+                 <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label for="log_date" class="form-label">Ngày Thực Hiện <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="log_date" name="log_date" value="{{ log.log_date }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="activity_type" class="form-label">Loại Hoạt Động <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="activity_type" name="activity_type" value="{{ log.activity_type }}" list="activity_types_datalist" required placeholder="VD: Bảo trì, Sửa chữa...">
+                        {# Datalist giữ nguyên #}
+                        <datalist id="activity_types_datalist">
+                            {% for type in activity_types %}
+                                <option value="{{ type }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="device_identifier" class="form-label">Định Danh Thiết Bị</label>
+                        <input type="text" class="form-control" id="device_identifier" name="device_identifier" value="{{ log.device_identifier or '' }}" placeholder="MAC Address hoặc tên gợi nhớ">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Mô Tả Chi Tiết</label>
+                    <textarea class="form-control" id="description" name="description" rows="4">{{ log.description or '' }}</textarea>
+                </div>
+                 <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label for="cost" class="form-label">Chi Phí</label>
+                         <div class="input-group">
+                            <input type="number" class="form-control" id="cost" name="cost" step="any" min="0" value="{{ log.cost | default(0, true) }}">
+                             <span class="input-group-text">₫</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="technician" class="form-label">Người Thực Hiện</label>
+                        <input type="text" class="form-control" id="technician" name="technician" value="{{ log.technician or '' }}">
+                    </div>
+                     <div class="col-md-4">
+                         <label class="form-label text-muted">Thời Gian Tạo Log</label>
+                         <p class="form-control-plaintext">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '(không có)' }}</p> {# Format lại thời gian nếu cần #}
+                     </div>
+                </div>
+
+                {# --- THÊM MỚI: Phần Quản lý Ảnh --- #}
+                <hr class="my-4">
+                <h5 class="mb-3"><i class="bi bi-images me-2"></i>Quản lý Ảnh Đính Kèm</h5>
+
+                {# Hiển thị ảnh hiện có #}
+                <div class="mb-3">
+                    <label class="form-label d-block">Ảnh hiện có:</label>
+                    {# Giả định biến 'log' được truyền từ route đã có sẵn log.images #}
+                    {# Giả định bạn có route 'uploaded_file' để hiển thị ảnh #}
+                    {% if log.images %}
+                        <div class="image-preview-container border p-3 rounded bg-light"> {# Sử dụng class giống edit.html #}
+                            {% for image in log.images %}
+                                <div class="image-preview-item"> {# Sử dụng class giống edit.html #}
+                                    <a href="{{ url_for('uploaded_file', filename=image.image_path) }}" target="_blank" title="Xem ảnh gốc">
+                                        {# Class img-thumbnail đã có sẵn trong Bootstrap 5 #}
+                                        <img src="{{ url_for('uploaded_file', filename=image.image_path) }}" alt="Ảnh Log {{ loop.index }}" class="img-thumbnail mb-2" style="max-width: 150px; max-height: 150px; object-fit: cover;">
+                                    </a>
+                                    <div class="form-check">
+                                        {# Name là 'delete_images', value là ID của WorkLogImage #}
+                                        <input class="form-check-input" type="checkbox" name="delete_images" value="{{ image.id }}" id="delete_log_img_{{ image.id }}">
+                                        <label class="form-check-label small" for="delete_log_img_{{ image.id }}">
+                                            Xóa ảnh này
+                                        </label>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted fst-italic">Nhật ký này chưa có ảnh nào.</p>
+                    {% endif %}
+                </div>
+
+                {# Input để thêm ảnh mới #}
+                <div class="mb-3">
+                    <label for="new_images" class="form-label">Thêm ảnh mới (Có thể chọn nhiều ảnh):</label>
+                    <input type="file" name="new_images" id="new_images" multiple class="form-control" accept="image/png, image/jpeg, image/gif">
+                    {# Lấy ALLOWED_EXTENSIONS từ biến global nếu có hoặc định nghĩa cứng #}
+                     <div class="form-text">Chỉ chấp nhận file: png, jpg, jpeg, gif.</div>
+                </div>
+                {# --- KẾT THÚC Phần Quản lý Ảnh --- #}
+
+                <hr>
+                {# --- Nút Lưu và Hủy --- #}
+                <div class="d-flex justify-content-between">
+                     <a href="{{ url_for('work_log') }}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle me-1"></i> Hủy
+                    </a>
+                     <button type="submit" class="btn btn-success">
+                        <i class="bi bi-save-fill me-1"></i> Lưu Thay Đổi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{# Thêm script nếu cần, ví dụ CSS cho phần preview ảnh #}
+<style>
+/* Tái sử dụng CSS từ trang edit.html cho nhất quán */
+.image-preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px; /* Khoảng cách giữa các ảnh */
+    margin-top: 10px;
+    padding: 15px;
+    background-color: #f8f9fa; /* Màu nền nhẹ */
+    border-radius: 0.375rem;
+}
+.image-preview-item {
+    border: 1px solid #dee2e6;
+    padding: 10px;
+    text-align: center;
+    background-color: #ffffff;
+    border-radius: 0.375rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    transition: transform 0.2s ease-in-out;
+    width: fit-content; /* Tự động điều chỉnh chiều rộng */
+}
+.image-preview-item:hover {
+    transform: translateY(-3px); /* Hiệu ứng nhấc lên khi hover */
+    box-shadow: 0 4px 8px rgba(0,0,0,.15);
+}
+.image-preview-item img {
+    /* max-width: 150px; */ /* Đã set inline */
+    /* max-height: 150px; */ /* Đã set inline */
+    display: block;
+    margin-bottom: 10px;
+    object-fit: cover;
+    border-radius: 0.25rem; /* Bo góc nhẹ cho ảnh */
+}
+.image-preview-item .form-check {
+    margin-top: 5px; /* Khoảng cách giữa ảnh và checkbox */
+}
+
+</style>
+{% endblock %}

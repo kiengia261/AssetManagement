@@ -1,0 +1,1175 @@
+{% extends 'base.html' %}
+
+{% block title %}Nhật Ký Giao Dịch Chứng Khoán{% endblock %}
+
+{% block head %}
+<style>
+    /* === Bảng màu hiện đại và chuyên nghiệp hơn === */
+    :root {
+        --color-primary-accent: #1a73e8; /* Một màu xanh dương của Google */
+        --color-secondary-highlight: #e8f0fe; /* Màu nền nhạt tương ứng */
+        --color-text-main: #202124; /* Màu chữ đậm */
+        --color-text-secondary: #5f6368; /* Màu chữ phụ */
+        --color-border: #dadce0; /* Màu đường viền nhẹ nhàng */
+        --color-background-light: #f8f9fa; /* Nền sáng */
+        --color-background-card: #ffffff; /* Nền card trắng */
+        --color-profit: #0f9d58; /* Màu xanh lá cây cho lãi */
+        --color-loss: #db4437; /* Màu đỏ cho lỗ */
+        --color-neutral: var(--color-text-secondary);
+        --badge-opened-bg: #fff2e8; /* Nền cam nhạt */
+        --badge-opened-color: #e37400; /* Chữ cam đậm */
+        --badge-closed-bg: #e8eaed; /* Nền xám nhạt */
+        --badge-closed-color: var(--color-text-secondary);
+        --badge-buy-bg: #e8f0fe;
+        --badge-buy-color: var(--color-primary-accent);
+        --badge-sell-bg: #fce8e6;
+        --badge-sell-color: var(--color-loss);
+        --badge-cash-bg: #e6f4ea;
+        --badge-cash-color: var(--color-profit);
+        --chart-palette-1: #4285f4;
+        --chart-palette-2: #0f9d58;
+        --chart-palette-3: #f4b400;
+        --chart-palette-4: #db4437;
+        --chart-palette-5: #ab47bc;
+        --chart-palette-6: #00bcd4;
+        --chart-palette-7: #ff7043;
+        --chart-palette-8: #78909c;
+    }
+
+    body {
+        background-color: var(--color-background-light);
+        color: var(--color-text-main);
+    }
+
+    .container-fluid {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    h1, h5, h6 {
+        color: var(--color-text-main);
+    }
+
+    .card {
+        border: 1px solid var(--color-border);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem; /* Default margin, can be overridden by g-4 */
+        background-color: var(--color-background-card);
+    }
+
+    .card-header {
+        background-color: var(--color-secondary-highlight);
+        color: var(--color-text-main);
+        font-weight: 600;
+        border-bottom: 1px solid var(--color-border);
+        padding: 0.75rem 1.25rem;
+    }
+    .card-header h5, .card-header h6 { /* Ensure h6 in header also gets styled */
+        color: inherit;
+        margin-bottom: 0;
+        font-size: 1rem; /* Standardize header font size */
+    }
+    .card-body {
+        padding: 1.25rem; /* Slightly reduced padding for denser layout */
+    }
+
+    .table {
+        --bs-table-striped-bg: var(--color-background-light);
+        --bs-table-hover-bg: rgba(0, 0, 0, 0.05);
+        border-collapse: separate;
+        border-spacing: 0;
+        border: 1px solid var(--color-border);
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+        padding: 0.75rem; /* Adjusted padding for table cells */
+        border-top: 1px solid var(--color-border);
+    }
+    .table th {
+        border-bottom: 1px solid var(--color-border);
+    }
+    .table thead th {
+        background-color: var(--color-secondary-highlight);
+        color: var(--color-text-main);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem; /* Adjusted font size */
+    }
+    .table tbody tr:first-child td { border-top: none; }
+    .table tbody tr:last-child td { border-bottom: none; }
+    .table thead th:first-child { border-top-left-radius: 0.5rem; }
+    .table thead th:last-child { border-top-right-radius: 0.5rem; }
+    .table tbody tr:last-child td:first-child { border-bottom-left-radius: 0.5rem; }
+    .table tbody tr:last-child td:last-child { border-bottom-right-radius: 0.5rem; }
+    .table td.text-end {
+        font-family: 'Segoe UI Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+        font-weight: 500;
+    }
+    .cost-value {
+        font-weight: 700;
+        white-space: nowrap;
+        color: var(--color-text-main);
+    }
+    .positive-pl { color: var(--color-profit); font-weight: 700; }
+    .negative-pl { color: var(--color-loss); font-weight: 700; }
+    .neutral-pl { color: var(--color-neutral); font-weight: 400; }
+    .badge {
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
+        display: inline-block;
+    }
+    .badge-opened { background-color: var(--badge-opened-bg); color: var(--badge-opened-color); }
+    .badge-closed { background-color: var(--badge-closed-bg); color: var(--badge-closed-color); }
+    .badge.bg-primary { background-color: var(--badge-buy-bg) !important; color: var(--badge-buy-color) !important; }
+    .badge.bg-danger { background-color: var(--badge-sell-bg) !important; color: var(--badge-sell-color) !important; }
+    .badge.bg-success { background-color: var(--badge-cash-bg) !important; color: var(--badge-cash-color) !important; }
+    .badge.bg-warning.text-dark { background-color: var(--badge-cash-bg) !important; color: var(--badge-cash-color) !important; }
+    .badge.bg-secondary { background-color: var(--badge-closed-bg) !important; color: var(--badge-closed-color) !important; }
+    
+    .action-buttons .btn-group .btn {
+        margin-right: 4px;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.875rem;
+        border: 1px solid var(--color-border);
+        background-color: var(--color-background-card);
+        color: var(--color-text-secondary);
+        transition: all 0.2s ease-in-out;
+    }
+    .action-buttons .btn-group .btn:hover {
+        background-color: var(--color-secondary-highlight);
+        color: var(--color-text-main);
+        border-color: var(--color-primary-accent);
+    }
+    .action-buttons .btn-group .btn-outline-primary { color: var(--color-primary-accent); border-color: var(--color-primary-accent); }
+    .action-buttons .btn-group .btn-outline-primary:hover { background-color: var(--color-primary-accent); color: white; }
+    .action-buttons .btn-group .btn-outline-success { color: var(--color-profit); border-color: var(--color-profit); }
+    .action-buttons .btn-group .btn-outline-success:hover { background-color: var(--color-profit); color: white; }
+    .action-buttons .btn-group .btn-outline-danger { color: var(--color-loss); border-color: var(--color-loss); }
+    .action-buttons .btn-group .btn-outline-danger:hover { background-color: var(--color-loss); color: white; }
+
+    /* Chart containers */
+    .chart-container-parent { /* Parent div for chart, to control height with h-100 on card */
+        height: 250px; /* Default height for charts in col-lg-4 */
+        position: relative;
+    }
+    
+    #navVniChartSpecificContainer.chart-container-parent { /* NAV/VNI chart specific height */
+        height: 250px; /* Adjusted height for col-lg-4 context */
+    }
+
+    .chart-canvas {
+        width: 105% !important;
+        height: 250px !important;
+    }
+
+    .modal-content {
+        border-radius: 0.5rem;
+        border: none;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    .modal-header {
+        border-bottom: 1px solid var(--color-border);
+        background-color: var(--color-background-card);
+        color: var(--color-text-main);
+        padding: 1rem 1.5rem;
+    }
+    .modal-footer {
+        border-top: 1px solid var(--color-border);
+        background-color: var(--color-background-card);
+        padding: 1rem 1.5rem;
+    }
+
+    .summary-card-custom dt { font-weight: 500; }
+    .summary-card-custom dd { margin-bottom: 0.3rem; }
+    .btn-custom-subtle { font-size: 0.85rem; padding: 0.25rem 0.5rem; }
+
+    /* Styling for filter card in new layout */
+    .filter-card-custom .form-label {
+        font-size: 0.8rem;
+        margin-bottom: 0.2rem;
+    }
+    .filter-card-custom .form-control-sm,
+    .filter-card-custom .form-select-sm {
+        font-size: 0.85rem;
+        padding: 0.3rem 0.6rem;
+    }
+    .filter-card-custom .btn-sm {
+        font-size: 0.85rem;
+        padding: 0.3rem 0.75rem;
+    }
+
+
+    @media (max-width: 991.98px) { /* md breakpoint */
+        .chart-container-parent { height: 220px; }
+        #navVniChartSpecificContainer.chart-container-parent { height: 300px; }
+    }
+
+    @media (max-width: 767.98px) { /* sm breakpoint */
+        .container-fluid { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .card-body { padding: 1rem; }
+        .table th, .table td { padding: 0.75rem 0.5rem; font-size: 0.875rem; }
+        .table thead th { font-size: 0.75rem; }
+        .action-buttons .btn-group .btn { padding: 0.3rem 0.5rem; font-size: 0.75rem; margin-right: 2px; }
+        .action-buttons .btn-group .btn i { font-size: 0.9rem; }
+        .chart-container-parent { height: 200px; }
+        #navVniChartSpecificContainer.chart-container-parent { height: 280px; }
+        .modal-header, .modal-footer { padding: 0.75rem 1rem; }
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Nhật Ký và Phân Tích Giao Dịch Chứng Khoán</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if error_message %}
+    <div class="alert alert-danger" role="alert">
+        {{ error_message }}
+    </div>
+    {% endif %}
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-pie-chart-fill me-2"></i>Phân Bổ Danh Mục (Theo Giá trị TT)</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container-parent">
+                        {% if charts_data and charts_data.allocation_labels and charts_data.allocation_values %}
+                            <canvas id="portfolioAllocationChart" class="chart-canvas"></canvas>
+                        {% else %}
+                            <p class="text-muted text-center mt-3 d-flex align-items-center justify-content-center h-100">Không có dữ liệu để hiển thị biểu đồ phân bổ.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-graph-up-arrow me-2"></i>Tương quan NAV - VNI</h6>                    
+                </div>
+                <div class="card-body">
+                    <select class="form-select form-select-sm w-auto" id="navVniPeriodSelect" name="nav_vni_period" aria-label="Chọn khoảng thời gian NAV/VNI">
+                        <option value="1w" {% if selected_nav_vni_period == '1w' %}selected{% endif %}>1 Tuần</option>
+                        <option value="1m" {% if selected_nav_vni_period == '1m' %}selected{% endif %}>1 Tháng</option>
+                        <option value="3m" {% if selected_nav_vni_period == '3m' %}selected{% endif %}>3 Tháng</option>
+                        <option value="6m" {% if selected_nav_vni_period == '6m' %}selected{% endif %}>6 Tháng</option>
+                        <option value="1y" {% if selected_nav_vni_period == '1y' %}selected{% endif %}>1 Năm</option>
+                        <option value="all" {% if selected_nav_vni_period == 'all' %}selected{% endif %}>Tất cả</option>
+                        </select>
+                    <div class="chart-container-parent" id="navVniChartSpecificContainer">
+                         {% if charts_data and charts_data.nav_vni_labels and (charts_data.nav_values or charts_data.vnindex_values) %}
+                            <canvas id="navVnIndexChart" class="chart-canvas"></canvas>
+                        {% else %}
+                            <p class="text-muted text-center mt-3 d-flex align-items-center justify-content-center h-100">Không có dữ liệu NAV/VNIndex. <a href="{{ url_for('manage_performance_data') }}">Nhập dữ liệu</a>.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 shadow-sm summary-card-custom">
+                <div class="card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-briefcase-fill me-2"></i>Tóm Tắt Danh Mục Hiện Tại (Lệnh Mở)</h6>
+                </div>
+                <div class="card-body">
+                    {% if portfolio_summary %}
+                    <dl class="row mb-0">
+                        <dt class="col-sm-7">NAV hiện tại:</dt>
+                        <dd class="col-sm-5 text-end cost-value">{{ portfolio_summary.latest_nav_value | currency_format(0) if portfolio_summary.latest_nav_value is not none else 'N/A' }}</dd>
+                        
+                        <dt class="col-sm-7">Tổng Giá trị Thị trường:</dt>
+                        <dd class="col-sm-5 text-end">{{ portfolio_summary.total_market_value | currency_format(0) }}</dd>
+
+                        <dt class="col-sm-7">Tổng Vốn Đầu Tư:</dt>
+                        <dd class="col-sm-5 text-end">{{ portfolio_summary.total_cost_basis | currency_format(0) }}</dd>
+                        
+                        <dt class="col-sm-7">Tiền mặt hiện tại:</dt>
+                        <dd class="col-sm-5 text-end cost-value">{{ portfolio_summary.current_cash | currency_format(0) if portfolio_summary.current_cash is not none else 'N/A'}}</dd>
+
+                        <dt class="col-sm-7">Lãi/Lỗ Tạm Tính:</dt>
+                        <dd class="col-sm-5 text-end {% if portfolio_summary.unrealized_pl >= 0 %}positive-pl{% else %}negative-pl{% endif %}">
+                            {{ portfolio_summary.unrealized_pl | currency_format(0) }}
+                            <small>({{ "%.2f" | format(portfolio_summary.unrealized_pl_percent if portfolio_summary.unrealized_pl_percent is not none else 0) }}%)</small>
+                        </dd>
+                        <hr class="my-2">
+                        <dt class="col-sm-7">Tổng Tiền Nộp (Kỳ lọc):</dt>
+                        <dd class="col-sm-5 text-end text-success cost-value">{{ portfolio_summary.total_deposit_period | currency_format(0) }}</dd>
+                        <dt class="col-sm-7">Tổng Tiền Rút (Kỳ lọc):</dt>
+                        <dd class="col-sm-5 text-end text-danger cost-value">{{ portfolio_summary.total_withdrawal_period | currency_format(0) }}</dd>
+                    </dl>
+                    {% else %}
+                    <p class="text-muted">Không có dữ liệu tóm tắt.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-calculator-fill me-2"></i>Tính Toán Hiệu Suất (MDRR)</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{{ url_for('stock_journal') }}" class="row g-2 align-items-end mb-3">
+                        <div class="col-sm-5">
+                            <label for="mdrr_start_select_card" class="form-label form-label-sm">Từ ngày</label>
+                            <input type="date" class="form-control form-control-sm" id="mdrr_start_select_card" name="mdrr_start_select" value="{{ request.args.get('mdrr_start_select', portfolio_summary.mdrr_start_date.strftime('%Y-%m-%d') if portfolio_summary and portfolio_summary.mdrr_start_date else '') }}">
+                        </div>
+                        <div class="col-sm-5">
+                            <label for="mdrr_end_select_card" class="form-label form-label-sm">Đến ngày</label>
+                            <input type="date" class="form-control form-control-sm" id="mdrr_end_select_card" name="mdrr_end_select" value="{{ request.args.get('mdrr_end_select', portfolio_summary.mdrr_end_date.strftime('%Y-%m-%d') if portfolio_summary and portfolio_summary.mdrr_end_date else '') }}">
+                        </div>
+                        <div class="col-sm-2">
+                            <button type="submit" class="btn btn-primary btn-sm w-100 mt-3">Tính</button>
+                        </div>
+                    </form>
+                    {% if portfolio_summary and portfolio_summary.mdrr is not none %}
+                        <p class="small mb-1">Kỳ tính toán:
+                            <strong>{{ portfolio_summary.actual_nav_start_date.strftime('%d/%m/%Y') if portfolio_summary.actual_nav_start_date else 'N/A' }}</strong>
+                            đến
+                            <strong>{{ portfolio_summary.actual_nav_end_date.strftime('%d/%m/%Y') if portfolio_summary.actual_nav_end_date else 'N/A' }}</strong>
+                        </p>
+                        <dl class="row mb-0 small">
+                            <dt class="col-7">TSSL (Kỳ):</dt>
+                            <dd class="col-5 text-end fw-bold {{ 'text-success' if portfolio_summary.mdrr >= 0 else 'text-danger' }}">{{ "%.2f" | format(portfolio_summary.mdrr * 100) }}%</dd>
+                            {% if portfolio_summary.annualized_mdrr is not none %}
+                            <dt class="col-7">TSSL (Năm):</dt>
+                            <dd class="col-5 text-end fw-bold {{ 'text-success' if portfolio_summary.annualized_mdrr >= 0 else 'text-danger' }}">{{ "%.2f" | format(portfolio_summary.annualized_mdrr * 100) }}%</dd>
+                            {% endif %}
+                        </dl>
+                    {% elif request.args.get('mdrr_start_select') or request.args.get('mdrr_end_select') %}
+                         <p class="text-warning small">Không đủ dữ liệu NAV. <a href="{{ url_for('manage_performance_data') }}">Nhập NAV</a>.</p>
+                    {% else %}
+                        <p class="text-muted small">Chọn kỳ và nhập NAV để tính MDRR.</p>
+                    {% endif %}
+                    <div class="text-end mt-2">
+                         <a href="{{ url_for('manage_performance_data') }}" class="btn btn-sm btn-outline-primary btn-custom-subtle">
+                            <i class="bi bi-pencil-square me-1"></i> Quản lý NAV/VNI
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 shadow-sm filter-card-custom">
+                <div class="card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-funnel-fill me-2"></i>Lọc Danh sách Giao dịch</h6>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('stock_journal') }}">
+                        <div class="mb-2">
+                            <label for="filter_symbol_card" class="form-label">Mã CK</label>
+                            <input type="text" class="form-control form-control-sm text-uppercase" id="filter_symbol_card" name="filter_symbol" value="{{ filter_symbol or '' }}" placeholder="VD: HPG, FPT">
+                        </div>
+                        <div class="mb-2">
+                            <label for="filter_status_card" class="form-label">Trạng thái (Mua)</label>
+                            <select class="form-select form-select-sm" id="filter_status_card" name="filter_status">
+                                <option value="" {% if not filter_status %}selected{% endif %}>Tất cả</option>
+                                <option value="OPENED" {% if filter_status == 'OPENED' %}selected{% endif %}>Đang mở</option>
+                                <option value="CLOSED" {% if filter_status == 'CLOSED' %}selected{% endif %}>Đã đóng</option>
+                            </select>
+                        </div>
+                        <div class="row gx-2 mb-2">
+                            <div class="col">
+                                <label for="filter_trans_start_date_card" class="form-label">Từ Ngày (GD)</label>
+                                <input type="date" class="form-control form-control-sm" id="filter_trans_start_date_card" name="filter_trans_start_date" value="{{ filter_trans_start_date or '' }}">
+                            </div>
+                            <div class="col">
+                                <label for="filter_trans_end_date_card" class="form-label">Đến Ngày (GD)</label>
+                                <input type="date" class="form-control form-control-sm" id="filter_trans_end_date_card" name="filter_trans_end_date" value="{{ filter_trans_end_date or '' }}">
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2 d-sm-flex">
+                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Áp dụng bộ lọc">
+                                <i class="bi bi-filter"></i> Lọc
+                            </button>
+                            {% if filter_symbol or filter_status or filter_trans_start_date or filter_trans_end_date %}
+                            <a href="{{ url_for('stock_journal') }}" class="btn btn-outline-secondary btn-sm flex-grow-1" title="Xóa bộ lọc">
+                                <i class="bi bi-x-lg"></i> Xóa Lọc
+                            </a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-bar-chart-line-fill me-2"></i>So sánh Tổng Lãi/Lỗ (Mã đã lọc)</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container-parent">
+                        {% if charts_data and charts_data.comparison_pl_labels and charts_data.comparison_pl_data %}
+                            <canvas id="symbolComparisonPLChart" class="chart-canvas"></canvas>
+                        {% else %}
+                            <p class="text-muted text-center mt-3 d-flex align-items-center justify-content-center h-100">Không có dữ liệu P&L mã để so sánh.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="card shadow-sm">
+         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0"><i class="bi bi-table me-2"></i>Danh Sách Giao Dịch</h5>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary rounded-pill">{{ pagination.total if pagination else 0 }} mục</span>
+                <div class="btn-group btn-group-sm">
+                    <a href="{{ url_for('add_stock_transaction') }}" class="btn btn-success" title="Thêm giao dịch mới">
+                        <i class="bi bi-plus-circle-fill me-1"></i> Thêm Mới
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importStockTransactionsModal" title="Nhập dữ liệu giao dịch từ Excel">
+                        <i class="bi bi-upload me-1"></i> Nhập Excel
+                    </button>
+                    <a href="{{ url_for('export_stock_transactions', 
+                                filter_symbol=filter_symbol, 
+                                filter_status=filter_status, 
+                                filter_trans_start_date=filter_trans_start_date,
+                                filter_trans_end_date=filter_trans_end_date)
+                            }}" class="btn btn-outline-secondary" title="Xuất dữ liệu giao dịch ra Excel">
+                        <i class="bi bi-download me-1"></i> Xuất Excel
+                    </a>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAllStockTransactionsModal" title="Xóa toàn bộ giao dịch chứng khoán">
+                        <i class="bi bi-trash-fill me-1"></i> Xóa Toàn Bộ
+                    </button>
+                    {# *** THÊM VÀO ĐÂY HOẶC TẠO GROUP MỚI *** #}
+                   <div class="btn-group btn-group-sm" role="group" aria-label="Foreign Trading Tools">
+                       <form action="{{ url_for('update_foreign_data') }}" method="POST" style="display: inline-block; margin:0;">
+                           <button type="submit" class="btn btn-info">
+                               <i class="bi bi-arrow-clockwise"></i> Cập nhật GDNN
+                           </button>
+                       </form>
+                       <a href="{{ url_for('foreign_investment_charts') }}" class="btn btn-success">
+                           <i class="bi bi-bar-chart-line-fill"></i> Biểu đồ GDNN
+                       </a>
+                   </div>
+                   {# ************************************** #}
+
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0 stock-table">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th scope="col" style="width: 10%;">Ngày GD</th>
+                            <th scope="col" style="width: 10%;">Mã CK</th>
+                            <th scope="col" style="width: 10%;">Loại GD</th>
+                            <th scope="col" class="text-end" style="width: 10%;">Số Lượng</th>
+                            <th scope="col" class="text-end" style="width: 10%;">Giá Gốc/CP</th>
+                            <th scope="col" class="text-end" style="width: 10%;">Giá Trị GD</th>
+                            <th scope="col" class="text-end" style="width: 10%;">Giá Bán/CP</th>
+                            <th scope="col" style="width: 8%;">Ngày Bán</th>
+                            <th scope="col" class="text-center" style="width: 8%;">Trạng Thái</th>
+                            <th scope="col" class="text-end" style="width: 10%;">Lãi/Lỗ</th>
+                            <th scope="col" class="text-center" style="width: 12%;">Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if pagination and pagination.items %}
+                            {% for trans in pagination.items %}
+                                <tr>
+                                    <td>{{ trans.transaction_date.strftime('%d/%m/%Y') if trans.transaction_date else '' }}</td>
+                                    <td><strong>{{ trans.symbol or 'N/A' }}</strong></td>
+                                    <td>
+                                        <span class="badge bg-{{ 'primary' if trans.transaction_type == 'BUY' else ('danger' if trans.transaction_type == 'SELL' else ('success' if trans.transaction_type == 'DEPOSIT' else ('warning text-dark' if trans.transaction_type == 'WITHDRAWAL' else 'secondary'))) }}">
+                                            {{ trans.transaction_type }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">{{ "{:,.0f}".format(trans.quantity) if trans.quantity is not none else '' }}</td>
+                                    <td class="text-end cost-value">{{ "{:,.0f}".format(trans.price) if trans.price is not none else '' }}</td>
+                                    <td class="text-end cost-value">
+                                        {% if trans.transaction_type in ['BUY', 'SELL'] and trans.quantity is not none and trans.price is not none %}
+                                            {{ "{:,.0f}".format(trans.quantity * trans.price) }}
+                                        {% elif trans.transaction_type in ['DEPOSIT', 'WITHDRAWAL', 'DIVIDEND_CASH'] and trans.price is not none %}
+                                             {{ "{:,.0f}".format(trans.price) }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end cost-value">
+                                        {% if trans.transaction_type == 'BUY' and trans.status == 'CLOSED' and trans.sell_price is not none %}
+                                            {{ "{:,.0f}".format(trans.sell_price) }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if trans.transaction_type == 'BUY' and trans.status == 'CLOSED' and trans.sell_date %}
+                                            {{ trans.sell_date.strftime('%d/%m/%Y') }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if trans.status %}
+                                        <span class="badge {{ 'badge-opened' if trans.status == 'OPENED' else 'badge-closed' }}">
+                                            {{ trans.status }}
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end {% if trans.calculated_pl is number and trans.calculated_pl > 0 %}positive-pl{% elif trans.calculated_pl is number and trans.calculated_pl < 0 %}negative-pl{% endif %}">
+                                        {% if trans.calculated_pl is number %}
+                                            {{ trans.calculated_pl | currency_format }}
+                                            {% if trans.calculated_pl_percent is number %}
+                                                <br><small>({{ "%.2f" | format(trans.calculated_pl_percent) }}%)</small>
+                                            {% endif %}
+                                        {% elif trans.calculated_pl %}
+                                            <small class="text-muted"><i>{{ trans.calculated_pl }}</i></small>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center action-buttons">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('edit_stock_transaction', trans_id=trans.id) }}" class="btn btn-outline-primary" title="Sửa">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                            {% if trans.transaction_type == 'BUY' and trans.status == 'OPENED' %}
+                                            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#sellStockModal-{{ trans.id }}" title="Bán cổ phiếu">
+                                                <i class="bi bi-cart-check-fill"></i>
+                                            </button>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteStockModal-{{ trans.id }}" title="Xóa">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                        <div class="modal fade" id="deleteStockModal-{{ trans.id }}" tabindex="-1" aria-labelledby="deleteStockModalLabel-{{ trans.id }}" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="deleteStockModalLabel-{{ trans.id }}">Xác nhận Xóa Giao dịch</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <form action="{{ url_for('delete_stock_transaction', trans_id=trans.id) }}" method="post">
+                                                        <div class="modal-body text-start">
+                                                            <p>Bạn có chắc chắn muốn xóa giao dịch này?</p>
+                                                            <ul>
+                                                                <li><strong>ID:</strong> {{ trans.id }}</li>
+                                                                <li><strong>Ngày:</strong> {{ trans.transaction_date.strftime('%d/%m/%Y') if trans.transaction_date else 'N/A' }}</li>
+                                                                <li><strong>Mã CK:</strong> {{ trans.symbol or 'N/A' }}</li>
+                                                                <li><strong>Loại:</strong> {{ trans.transaction_type }}</li>
+                                                            </ul>
+                                                            <p class="text-danger">Hành động này không thể hoàn tác.</p>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                                            <button type="submit" class="btn btn-danger">
+                                                                <i class="bi bi-trash-fill me-1"></i> Xác nhận Xóa
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% if trans.transaction_type == 'BUY' and trans.status == 'OPENED' %}
+                                        <div class="modal fade" id="sellStockModal-{{ trans.id }}" tabindex="-1" aria-labelledby="sellStockModalLabel-{{ trans.id }}" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="sellStockModalLabel-{{ trans.id }}">Bán Cổ phiếu: {{ trans.symbol }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <form action="{{ url_for('execute_sell_stock', buy_transaction_id=trans.id) }}" method="post">
+                                                        <div class="modal-body text-start">
+                                                            <p><strong>Lệnh mua gốc:</strong> Ngày {{ trans.transaction_date.strftime('%d/%m/%Y') }}, SL {{ "{:,.0f}".format(trans.quantity) }}, Giá {{ "{:,.0f}".format(trans.price) }}</p>
+                                                            <div class="mb-3">
+                                                                <label for="sell_quantity_modal_{{ trans.id }}" class="form-label">Số lượng bán <span class="text-danger">*</span></label>
+                                                                <input type="number" class="form-control" id="sell_quantity_modal_{{ trans.id }}" name="sell_quantity_modal" value="{{ trans.quantity }}" min="1" max="{{ trans.quantity }}" required step="any">
+                                                                <div class="form-text">Mặc định là toàn bộ số lượng của lệnh mua.</div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="sell_price_modal_{{ trans.id }}" class="form-label">Giá bán / CP <span class="text-danger">*</span></label>
+                                                                <input type="number" class="form-control" id="sell_price_modal_{{ trans.id }}" name="sell_price_modal" required step="any" min="0">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="sell_date_modal_{{ trans.id }}" class="form-label">Ngày bán <span class="text-danger">*</span></label>
+                                                                <input type="date" class="form-control" id="sell_date_modal_{{ trans.id }}" name="sell_date_modal" required value="{{ now.strftime('%Y-%m-%d') }}">
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                                            <button type="submit" class="btn btn-success">
+                                                                <i class="bi bi-check-circle-fill me-1"></i> Xác nhận Bán
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="11" class="text-center py-4 text-muted">
+                                    {% if request.args.get('filter_trans_start_date') or request.args.get('filter_trans_end_date') or request.args.get('filter_symbol') or request.args.get('filter_status') %}
+                                        Không tìm thấy giao dịch nào phù hợp với bộ lọc của bạn.
+                                    {% else %}
+                                        Chưa có giao dịch nào được ghi nhận. <a href="{{ url_for('add_stock_transaction') }}">Thêm mới?</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if pagination and pagination.pages > 1 %}
+        <div class="card-footer bg-light border-top-0">
+             <nav aria-label="Page navigation Stock Transaction">
+                 <ul class="pagination justify-content-center mb-0">
+                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                         <a class="page-link" href="{{ url_for('stock_journal', page=1, 
+                                                            filter_symbol=filter_symbol, 
+                                                            filter_status=filter_status, 
+                                                            filter_trans_start_date=filter_trans_start_date, 
+                                                            filter_trans_end_date=filter_trans_end_date) 
+                                                            }}" aria-label="First">
+                             <span aria-hidden="true">&laquo;&laquo;</span>
+                         </a>
+                     </li>
+                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                         <a class="page-link" href="{{ url_for('stock_journal', page=pagination.prev_num, 
+                                                            filter_symbol=filter_symbol, 
+                                                            filter_status=filter_status, 
+                                                            filter_trans_start_date=filter_trans_start_date, 
+                                                            filter_trans_end_date=filter_trans_end_date) 
+                                                            }}" aria-label="Previous">
+                             <span aria-hidden="true">&laquo;</span>
+                         </a>
+                     </li>
+                     {% for p_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if p_num %}
+                            {% if p_num == pagination.page %}
+                                <li class="page-item active" aria-current="page"><span class="page-link">{{ p_num }}</span></li>
+                            {% else %}
+                                <li class="page-item"><a class="page-link" href="{{ url_for('stock_journal', page=p_num, 
+                                                                                            filter_symbol=filter_symbol, 
+                                                                                            filter_status=filter_status, 
+                                                                                            filter_trans_start_date=filter_trans_start_date, 
+                                                                                            filter_trans_end_date=filter_trans_end_date) 
+                                                                                            }}">{{ p_num }}</a></li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                     {% endfor %}
+                     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                         <a class="page-link" href="{{ url_for('stock_journal', page=pagination.next_num, 
+                                                            filter_symbol=filter_symbol, 
+                                                            filter_status=filter_status, 
+                                                            filter_trans_start_date=filter_trans_start_date, 
+                                                            filter_trans_end_date=filter_trans_end_date) 
+                                                            }}" aria-label="Next">
+                             <span aria-hidden="true">&raquo;</span>
+                         </a>
+                     </li>
+                      <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                         <a class="page-link" href="{{ url_for('stock_journal', page=pagination.pages, 
+                                                            filter_symbol=filter_symbol, 
+                                                            filter_status=filter_status, 
+                                                            filter_trans_start_date=filter_trans_start_date, 
+                                                            filter_trans_end_date=filter_trans_end_date) 
+                                                            }}" aria-label="Last">
+                             <span aria-hidden="true">&raquo;&raquo;</span>
+                         </a>
+                     </li>
+                 </ul>
+             </nav>
+             <p class="text-center text-muted small mt-2 mb-0">Trang {{ pagination.page }} / {{ pagination.pages }} (Tổng cộng {{ pagination.total }} giao dịch)</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="mt-4">
+        <h4 class="mb-3"><i class="bi bi-clipboard-data-fill me-2"></i>Chi tiết Hiệu suất Từng Mã</h4>
+        {% if performance_by_symbol_data %}
+             <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                {% for symbol, perf_data in performance_by_symbol_data.items() %}
+                    {% if perf_data.status_message == 'OK' %}
+                    <div class="col">
+                        <div class="card h-100 shadow-sm symbol-performance-card">
+                            <div class="card-header {% if perf_data.total_pl >= 0 %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
+                                <strong class="fs-5">{{ symbol }}</strong>
+                                {% if perf_data.market_price is not none %}
+                                    <small class="float-end text-muted">Giá TT: {{ perf_data.market_price | currency_format(precision=0) }}</small>
+                                {% else %}
+                                     <small class="float-end text-warning">Chưa có giá TT</small>
+                                {% endif %}
+                            </div>
+                            <div class="card-body p-3">
+                                <ul class="list-group list-group-flush small">
+                                    <li class="list-group-item d-flex justify-content-between px-0 py-1">
+                                        <span>Tổng vốn đã giải ngân:</span> {# total_investment là tổng vốn đã bỏ ra cho mã này (tính cả phí mua của các lệnh đã đóng và đang mở) #}
+                                        <span class="cost-value">{{ perf_data.total_investment | currency_format }}</span>
+                                    </li>
+                                    {% if perf_data.quantity_opened > 0 %}
+                                    <li class="list-group-item d-flex justify-content-between px-0 py-1">
+                                        <span>Tổng vốn đang đầu tư (gốc):</span> {# original_value_opened là tổng giá trị gốc của các lệnh mua đang mở #}
+                                        <span class="cost-value">{{ perf_data.original_value_opened | currency_format }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between px-0 py-1">
+                                        <span>Giá vốn TB (mở, chưa phí):</span>
+                                        <span>{{ perf_data.avg_buy_price_opened | currency_format if perf_data.avg_buy_price_opened is not none else 'N/A' }}</span>
+                                    </li>
+                                     <li class="list-group-item d-flex justify-content-between px-0 py-1 {% if perf_data.unrealized_pl > 0 %}text-success{% elif perf_data.unrealized_pl < 0 %}text-danger{% endif %}">
+                                        <span>Lãi/Lỗ tạm tính ({{ perf_data.quantity_opened | int }} CP):</span>
+                                        <span>{{ perf_data.unrealized_pl | currency_format if perf_data.market_price is not none else 'N/A' }}</span>
+                                    </li>
+                                    {% else %}
+                                         <li class="list-group-item d-flex justify-content-between px-0 py-1 text-muted">
+                                            <span>Lãi/Lỗ tạm tính:</span>
+                                            <span>(Đã bán hết)</span>
+                                        </li>
+                                    {% endif %}
+                                    <li class="list-group-item d-flex justify-content-between px-0 py-1 {% if perf_data.realized_pl > 0 %}text-success{% elif perf_data.realized_pl < 0 %}text-danger{% endif %}">
+                                        <span>Lãi/Lỗ đã thực hiện:</span>
+                                        <span>{{ perf_data.realized_pl | currency_format }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between px-0 py-2 mt-1 border-top fw-bold {% if perf_data.total_pl >= 0 %}text-success{% elif perf_data.total_pl < 0 %}text-danger{% endif %}">
+                                        <span>TỔNG LÃI/LỖ:</span>
+                                        <span>{{ perf_data.total_pl | currency_format }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between px-0 py-1 fw-bold {% if perf_data.percent_pl >= 0 %}text-success{% elif perf_data.percent_pl < 0 %}text-danger{% endif %}">
+                                        <span>% Lãi/Lỗ:</span>
+                                        <span>{{ "%.2f" | format(perf_data.percent_pl) }}%</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% elif perf_data.status_message %}
+                     <div class="col">
+                        <div class="card h-100 border-warning">
+                            <div class="card-header bg-warning-subtle"><strong>{{ symbol }}</strong></div>
+                            <div class="card-body"><p class="text-muted small">{{ perf_data.status_message }}</p></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-light text-center" role="alert">
+                Không có dữ liệu hiệu suất mã cổ phiếu để hiển thị theo bộ lọc hiện tại. Hãy thử xóa bộ lọc hoặc chọn mã khác.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="deleteAllStockTransactionsModal" tabindex="-1" aria-labelledby="deleteAllStockTransactionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteAllStockTransactionsModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Xác Nhận Xóa Toàn Bộ Giao Dịch</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('delete_all_stock_transactions') }}" method="post">
+                <div class="modal-body">
+                    <p class="text-danger fw-bold">CẢNH BÁO! Hành động này KHÔNG THỂ hoàn tác.</p>
+                    <p>Bạn có chắc chắn muốn xóa <strong>TOÀN BỘ</strong> lịch sử giao dịch chứng khoán của mình khỏi hệ thống không?</p>
+                    <div class="mb-3">
+                        <label for="deletePasswordStock" class="form-label">Nhập mật khẩu xác nhận:</label>
+                        <input type="password" class="form-control" id="deletePasswordStock" name="password" required autocomplete="current-password">
+                        <div class="form-text">Nhập mật khẩu đã cấu hình trong file `config.py` (DELETE_PASSWORD) để xác nhận xóa.</div>
+                    </div>
+                    <p class="text-danger">Hãy chắc chắn bạn hiểu rõ hậu quả trước khi tiếp tục.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash-fill me-1"></i> Xác Nhận Xóa Toàn Bộ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="importStockTransactionsModal" tabindex="-1" aria-labelledby="importStockTransactionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importStockTransactionsModalLabel"><i class="bi bi-upload me-2"></i>Nhập Dữ Liệu Giao Dịch từ Excel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('import_stock_transactions') }}" method="post" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <p>Chọn tệp Excel (.xlsx) chứa dữ liệu giao dịch để nhập vào hệ thống.</p>
+                    <div class="mb-3">
+                        <label for="stockExcelFile" class="form-label">Chọn File Excel (.xlsx):</label>
+                        <input class="form-control" type="file" id="stockExcelFile" name="file" accept=".xlsx" required>
+                    </div>
+                    <p class="text-muted small">Đảm bảo tệp Excel có cấu trúc cột giống như tệp được xuất ra từ chức năng "Xuất Excel".</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i> Xác Nhận Nhập
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const style = getComputedStyle(document.documentElement);
+    const chartPalette = [
+        style.getPropertyValue('--chart-palette-1').trim(), style.getPropertyValue('--chart-palette-2').trim(),
+        style.getPropertyValue('--chart-palette-3').trim(), style.getPropertyValue('--chart-palette-4').trim(),
+        style.getPropertyValue('--chart-palette-5').trim(), style.getPropertyValue('--chart-palette-6').trim(),
+        style.getPropertyValue('--chart-palette-7').trim(), style.getPropertyValue('--chart-palette-8').trim(),
+    ];
+    const colorTextSecondary = style.getPropertyValue('--color-text-secondary').trim();
+    const colorBorder = style.getPropertyValue('--color-border').trim();
+    const chartBackgroundColors = chartPalette.map(color => color + '40'); 
+    const chartBorderColors = chartPalette;
+
+    // Portfolio Allocation Chart
+    try {
+        const allocationCanvas = document.getElementById('portfolioAllocationChart');
+        const allocationDataJson = '{{ charts_data.allocation_values | tojson | safe if charts_data and charts_data.allocation_values else "[]" }}';
+        const allocationLabelsJson = '{{ charts_data.allocation_labels | tojson | safe if charts_data and charts_data.allocation_labels else "[]" }}';
+        const allocationValues = JSON.parse(allocationDataJson);
+        const allocationLabels = JSON.parse(allocationLabelsJson);
+
+        if (allocationCanvas && allocationValues.length > 0 && allocationLabels.length === allocationValues.length) {
+            new Chart(allocationCanvas, {
+                type: 'pie',
+                data: {
+                    labels: allocationLabels,
+                    datasets: [{
+                        label: 'Giá trị Thị trường', data: allocationValues,
+                        backgroundColor: chartBackgroundColors, borderColor: chartBorderColors,
+                        borderWidth: 1, hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                         legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10, color: colorTextSecondary, font: {size: 10} }},
+                         title: { display: false },
+                         tooltip: {
+                             callbacks: {
+                                 label: function(context) {
+                                     let label = context.label || '';
+                                     if (label) { label += ': '; }
+                                     const value = context.raw || 0;
+                                     const total = context.chart.data.datasets[0].data.reduce((acc, val) => acc + val, 0);
+                                     const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : 0;
+                                     return `${label}${value.toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ₫ (${percentage}%)`;
+                                 }
+                             }
+                         }
+                    }
+                }
+            });
+        }
+    } catch (e) { console.error("Lỗi biểu đồ Phân bổ Danh mục:", e); }
+
+    // NAV/VNI Chart
+    try {
+        const navVniCanvas = document.getElementById('navVnIndexChart');
+        const navVniLabelsJson = '{{ charts_data.nav_vni_labels | tojson | safe if charts_data and charts_data.nav_vni_labels else "[]" }}';
+        const navValuesJson = '{{ charts_data.nav_values | tojson | safe if charts_data and charts_data.nav_values else "[]" }}';
+        const vnindexValuesJson = '{{ charts_data.vnindex_values | tojson | safe if charts_data and charts_data.vnindex_values else "[]" }}';
+        const navVniLabels = JSON.parse(navVniLabelsJson);
+        const navValues = JSON.parse(navValuesJson);
+        const vnindexValues = JSON.parse(vnindexValuesJson);
+        const hasNavData = navValues.some(val => val !== null);
+        const hasVniData = vnindexValues.some(val => val !== null);
+
+        if (navVniCanvas && navVniLabels.length > 0 && (hasNavData || hasVniData)) {
+            const datasets = [];
+            if (hasNavData) { datasets.push({
+                label: 'NAV (Triệu VND)', data: navValues.map(v => v !== null ? parseFloat((v / 1000000).toFixed(2)) : null),
+                borderColor: chartPalette[0], backgroundColor: chartPalette[0] + '1A', yAxisID: 'yNav', tension: 0.1, fill: true, pointRadius: 2, pointHoverRadius: 4
+            });}
+            if (hasVniData) { datasets.push({
+                 label: 'VNIndex', data: vnindexValues.map(v => v !== null ? parseFloat(v.toFixed(2)) : null),
+                 borderColor: chartPalette[3], backgroundColor: chartPalette[3] + '1A', yAxisID: 'yVnIndex', tension: 0.1, fill: false, pointRadius: 2, pointHoverRadius: 4
+            });}
+            
+                // NAV/VNI Chart (Đã cập nhật để xử lý % thay đổi và dropdown chọn khoảng thời gian)
+    try {
+        const navVniCanvas = document.getElementById('navVnIndexChart');
+        // Lấy dữ liệu % thay đổi từ Flask
+        const navVniLabelsJson = '{{ charts_data.nav_vni_labels | tojson | safe if charts_data and charts_data.nav_vni_labels else "[]" }}';
+        const navPctChangeDataJson = '{{ charts_data.nav_values | tojson | safe if charts_data and charts_data.nav_values else "[]" }}'; // Dữ liệu % NAV
+        const vnindexPctChangeDataJson = '{{ charts_data.vnindex_values | tojson | safe if charts_data and charts_data.vnindex_values else "[]" }}'; // Dữ liệu % VNI
+        const navVniLabels = JSON.parse(navVniLabelsJson);
+        const navPctChangeData = JSON.parse(navPctChangeDataJson);
+        const vnindexPctChangeData = JSON.parse(vnindexPctChangeDataJson);
+
+        // Kiểm tra xem có dữ liệu hợp lệ không
+        const hasNavPctData = navPctChangeData.some(val => val !== null);
+        const hasVniPctData = vnindexPctChangeData.some(val => val !== null);
+
+        if (navVniCanvas && navVniLabels.length > 0 && (hasNavPctData || hasVniPctData)) {
+            const datasets = [];
+            if (hasNavPctData) {
+                datasets.push({
+                    label: 'NAV (% Thay đổi)', // Nhãn cho NAV
+                    data: navPctChangeData, // Dữ liệu % thay đổi NAV
+                    borderColor: chartPalette[0], // Màu đường NAV (xanh dương)
+                    backgroundColor: chartPalette[0] + '1A', // Màu nền dưới đường NAV (nhạt hơn)
+                    yAxisID: 'y', // Chỉ định trục Y bên trái
+                    tension: 0.1, // Làm mịn đường kẻ
+                    pointRadius: 1.5, // Giảm kích thước điểm dữ liệu
+                    pointHoverRadius: 4, // Kích thước điểm khi hover
+                    fill: true // Tô màu vùng dưới đường kẻ NAV
+                });
+            }
+            if (hasVniPctData) {
+                 datasets.push({
+                    label: 'VNIndex (% Thay đổi)', // Nhãn cho VNIndex
+                    data: vnindexPctChangeData, // Dữ liệu % thay đổi VNIndex
+                    borderColor: chartPalette[3], // Màu đường VNIndex (đỏ)
+                    backgroundColor: chartPalette[3] + '1A', // Màu nền dưới đường VNIndex (nhạt hơn)
+                    yAxisID: 'y', // Chỉ định trục Y bên trái
+                    tension: 0.1, // Làm mịn đường kẻ
+                    pointRadius: 1.5, // Giảm kích thước điểm dữ liệu
+                    pointHoverRadius: 4, // Kích thước điểm khi hover
+                    fill: false // Không tô màu vùng dưới đường kẻ VNIndex
+                });
+            }
+
+            // Khởi tạo biểu đồ Chart.js
+            new Chart(navVniCanvas, {
+                type: 'line', // Loại biểu đồ đường
+                data: {
+                    labels: navVniLabels, // Nhãn trục X (ngày)
+                    datasets: datasets // Sử dụng datasets đã chuẩn bị ở trên
+                },
+                options: {
+                    responsive: true, // Biểu đồ tự điều chỉnh kích thước
+                    maintainAspectRatio: false, // Cho phép thay đổi tỷ lệ khung hình
+                    interaction: {
+                        mode: 'index', // Hiển thị tooltip cho tất cả dataset tại cùng một điểm X
+                        intersect: false, // Tooltip hiển thị ngay cả khi không hover chính xác vào điểm
+                    },
+                    plugins: {
+                        title: { display: false }, // Bỏ tiêu đề mặc định của Chart.js
+                        legend: {
+                            position: 'bottom', // Đặt chú thích ở dưới
+                            align: 'center', // Căn giữa chú thích
+                            labels: {
+                                usePointStyle: true, // Dùng kiểu điểm
+                                boxWidth: 8, // Kích thước điểm
+                                padding: 15, // Khoảng cách
+                                font: { size: 11 }, // Font size
+                                color: colorTextSecondary // Màu chữ chú thích
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.7)', // Nền tooltip
+                            titleFont: { weight: 'bold'},
+                            bodyFont: { size: 11 },
+                            padding: 10, // Padding
+                            cornerRadius: 4, // Bo góc
+                            displayColors: true, // Hiển thị ô màu
+                            boxPadding: 4, // Padding ô màu
+                            callbacks: {
+                                label: function(context) {
+                                    // Định dạng lại tooltip để hiển thị %
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(2) + '%'; // Hiển thị %
+                                    }
+                                    return context.parsed.y !== null ? label : null;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            ticks: {
+                                font: { size: 10 }, // Font size nhãn trục X
+                                color: colorTextSecondary,
+                                maxRotation: 0, // Giữ nhãn ngang
+                                autoSkip: true, // Tự động bỏ qua nhãn
+                                maxTicksLimit: 8 // Giới hạn số nhãn (điều chỉnh nếu cần)
+                            },
+                            grid: { display: false } // Ẩn lưới trục X
+                        },
+                        y: { // Trục Y chung cho cả NAV và VNI (%)
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: '% Thay đổi', // Tiêu đề trục Y
+                                font: { size: 11 },
+                                color: colorTextSecondary
+                            },
+                            ticks: {
+                                // Định dạng nhãn trục Y thêm ký hiệu %
+                                callback: function(value, index, ticks) {
+                                    return value.toFixed(0) + '%';
+                                },
+                                font: { size: 10 },
+                                color: colorTextSecondary
+                            },
+                            grid: { color: colorBorder } // Màu lưới trục Y
+                        }
+                    }
+                }
+            });
+        } else if (navVniCanvas) {
+            // Hiển thị thông báo nếu không có dữ liệu cho biểu đồ này
+            const ctx = navVniCanvas.getContext('2d');
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = colorTextSecondary;
+            ctx.font = '14px sans-serif';
+            ctx.fillText('Không có dữ liệu NAV/VNI cho khoảng thời gian này.', navVniCanvas.width / 2, navVniCanvas.height / 2);
+        }
+
+        // === THÊM MỚI: Xử lý sự kiện thay đổi dropdown ===
+        const periodSelect = document.getElementById('navVniPeriodSelect');
+        if (periodSelect) {
+            periodSelect.addEventListener('change', function() {
+                const selectedPeriod = this.value;
+                // Lấy URL hiện tại
+                const currentUrl = new URL(window.location.href);
+                // Cập nhật hoặc thêm tham số 'nav_vni_period'
+                currentUrl.searchParams.set('nav_vni_period', selectedPeriod);
+                // Tải lại trang với URL mới
+                window.location.href = currentUrl.toString();
+            });
+        }
+
+    } catch (e) { console.error("Lỗi xử lý biểu đồ NAV/VNIndex:", e); }
+
+    // --- Các biểu đồ khác (Phân bổ, So sánh P&L) giữ nguyên logic cũ ---
+    // Portfolio Allocation Chart (Giữ nguyên)
+    try {
+        const allocationCanvas = document.getElementById('portfolioAllocationChart');
+        const allocationDataJson = '{{ charts_data.allocation_values | tojson | safe if charts_data and charts_data.allocation_values else "[]" }}';
+        const allocationLabelsJson = '{{ charts_data.allocation_labels | tojson | safe if charts_data and charts_data.allocation_labels else "[]" }}';
+        const allocationValues = JSON.parse(allocationDataJson);
+        const allocationLabels = JSON.parse(allocationLabelsJson);
+
+        if (allocationCanvas && allocationValues.length > 0 && allocationLabels.length === allocationValues.length) {
+            new Chart(allocationCanvas, {
+                type: 'pie', data: { labels: allocationLabels, datasets: [{ label: 'Giá trị Thị trường', data: allocationValues, backgroundColor: chartBackgroundColors, borderColor: chartBorderColors, borderWidth: 1, hoverOffset: 8 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10, color: colorTextSecondary, font: {size: 10} }}, title: { display: false }, tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } const value = context.raw || 0; const total = context.chart.data.datasets[0].data.reduce((acc, val) => acc + val, 0); const percentage = total > 0 ? ((value / total) * 100).toFixed(2) : 0; return `${label}${value.toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ₫ (${percentage}%)`; } } } } }
+            });
+        }
+    } catch (e) { console.error("Lỗi biểu đồ Phân bổ Danh mục:", e); }
+
+    // Symbol P&L Comparison Chart (Giữ nguyên)
+    try {
+        const comparisonPlCanvas = document.getElementById('symbolComparisonPLChart');
+        const comparisonPlLabelsJson = '{{ charts_data.comparison_pl_labels | tojson | safe if charts_data and charts_data.comparison_pl_labels else "[]"}}';
+        const comparisonPlDataJson = '{{ charts_data.comparison_pl_data | tojson | safe if charts_data and charts_data.comparison_pl_data else "[]" }}';
+        const comparisonPlLabels = JSON.parse(comparisonPlLabelsJson);
+        const comparisonPlData = JSON.parse(comparisonPlDataJson);
+
+        if (comparisonPlCanvas && comparisonPlLabels.length > 0 && comparisonPlData.length === comparisonPlLabels.length) {
+            const profitColor = style.getPropertyValue('--color-profit').trim(); const lossColor = style.getPropertyValue('--color-loss').trim();
+            new Chart(comparisonPlCanvas, {
+                type: 'bar', data: { labels: comparisonPlLabels, datasets: [{ label: 'Tổng Lãi/Lỗ', data: comparisonPlData, backgroundColor: comparisonPlData.map(value => value >= 0 ? profitColor + 'B3' : lossColor + 'B3'), borderColor: comparisonPlData.map(value => value >= 0 ? profitColor : lossColor), borderWidth: 1 }] },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { title: { display: true, text: 'Tổng Lãi/Lỗ (VND)', color: colorTextSecondary, font: {size: 11} }, ticks: { color: colorTextSecondary, font: {size: 10}, callback: function(value, index, values) { return value.toLocaleString('vi-VN', { maximumFractionDigits: 0 }); } }, grid: { color: colorBorder } }, y: { ticks: { color: colorTextSecondary, font: {size: 10} }, grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.x !== null) { label += context.parsed.x.toLocaleString('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0, maximumFractionDigits: 0 }); } return label; } } } } }
+            });
+        }
+    } catch (e) { console.error("Lỗi biểu đồ So sánh P&L Mã:", e); }
+
+        }
+    } catch (e) { console.error("Lỗi biểu đồ NAV/VNIndex:", e); }
+
+    // Symbol P&L Comparison Chart
+    try {
+        const comparisonPlCanvas = document.getElementById('symbolComparisonPLChart');
+        const comparisonPlLabelsJson = '{{ charts_data.comparison_pl_labels | tojson | safe if charts_data and charts_data.comparison_pl_labels else "[]"}}';
+        const comparisonPlDataJson = '{{ charts_data.comparison_pl_data | tojson | safe if charts_data and charts_data.comparison_pl_data else "[]" }}';
+        const comparisonPlLabels = JSON.parse(comparisonPlLabelsJson);
+        const comparisonPlData = JSON.parse(comparisonPlDataJson);
+
+        if (comparisonPlCanvas && comparisonPlLabels.length > 0 && comparisonPlData.length === comparisonPlLabels.length) {
+            const profitColor = style.getPropertyValue('--color-profit').trim();
+            const lossColor = style.getPropertyValue('--color-loss').trim();
+            new Chart(comparisonPlCanvas, {
+                type: 'bar',
+                data: {
+                    labels: comparisonPlLabels,
+                    datasets: [{
+                        label: 'Tổng Lãi/Lỗ',
+                        data: comparisonPlData,
+                        backgroundColor: comparisonPlData.map(value => value >= 0 ? profitColor + 'B3' : lossColor + 'B3'),
+                        borderColor: comparisonPlData.map(value => value >= 0 ? profitColor : lossColor),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                    scales: {
+                        x: {
+                             title: { display: true, text: 'Tổng Lãi/Lỗ (VND)', color: colorTextSecondary, font: {size: 11} },
+                             ticks: {
+                                 color: colorTextSecondary, font: {size: 10},
+                                 callback: function(value, index, values) {
+                                     return value.toLocaleString('vi-VN', { maximumFractionDigits: 0 });
+                                 }
+                            },
+                            grid: { color: colorBorder }
+                        },
+                        y: { ticks: { color: colorTextSecondary, font: {size: 10} }, grid: { display: false } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                             callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.x !== null) {
+                                        label += context.parsed.x.toLocaleString('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                                    }
+                                    return label;
+                                }
+                             }
+                         }
+                    }
+                }
+            });
+        }
+    } catch (e) { console.error("Lỗi biểu đồ So sánh P&L Mã:", e); }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,914 @@
+{% extends 'base.html' %}
+
+{% block title %}Quản lý Thẻ{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    body {
+        font-family: 'Inter', sans-serif; /* Sử dụng font Inter */
+        background-color: #f8f9fa;
+    }
+    .chart-container {
+        position: relative;
+        height: 250px; /* Điều chỉnh chiều cao biểu đồ nếu cần */
+        width: 100%;
+        border: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background-color: #ffffff;
+        border-radius: 0.375rem;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .table {
+        table-layout: auto; 
+        width: 100%; 
+    }
+    .card-header h5, .card-header h6 {
+        margin-bottom: 0;
+    }
+    .sticky-top-header { 
+        position: sticky;
+        top: 0; 
+        z-index: 1020;
+        background-color: #f8f9fa; /* Đảm bảo header có nền khi cuộn */
+    }
+    .action-buttons .btn {
+        margin-right: 5px;
+    }
+    .badge-available {
+        background-color: #198754; /* Bootstrap success color */
+        color: white;
+    }
+    .badge-using {
+        background-color: #ffc107; /* Bootstrap warning color */
+        color: #000;
+    }
+    .badge-lost { /* CSS mới cho badge Lost */
+        background-color: #dc3545; /* Bootstrap danger color */
+        color: white;
+    }
+    .modal-header {
+        border-bottom: 1px solid #dee2e6;
+    }
+    .modal-footer {
+        border-top: 1px solid #dee2e6;
+    }
+    .form-control-sm, .btn-sm, .form-select-sm {
+        font-size: 0.875rem;
+    }
+    .table thead th {
+        background-color: #e9ecef;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f1f1f1;
+    }
+    .form-label-sm {
+        margin-bottom: .2rem;
+        font-size: .8rem;
+    }
+    .filter-form .col-lg-1, .filter-form .col-md-12 { 
+        align-self: flex-end; 
+    }
+    .text-center-stt {
+        text-align: center;
+        width: 3rem; 
+    }
+    .text-center-checkbox {
+        text-align: center;
+        width: 2.5rem; 
+    }
+    .text-center-actions {
+        text-align: center;
+        width: auto; /* Điều chỉnh độ rộng để vừa các nút */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Quản lý Thẻ</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if error_message %}
+    <div class="alert alert-danger" role="alert">
+        {{ error_message }}
+    </div>
+    {% endif %}
+
+    <div class="row mb-4">
+        <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Tổng Quan Thẻ</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <canvas id="overallCardChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="fas fa-user-tie me-2"></i>BP. Customer</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <canvas id="customerCardChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="fas fa-users me-2"></i>BP. Employee</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <canvas id="employeeCardChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-user-clock me-2"></i>BP. Temp_Worker</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <canvas id="tempWorkerCardChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light sticky-top-header">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+                <h5 class="mb-0 me-auto"><i class="fas fa-id-card me-2"></i>Danh sách Thẻ</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addCardModal">
+                        <i class="fas fa-plus-circle me-1"></i> Thêm Thẻ Mới
+                    </button>
+                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#assignCardsModal" id="btnAssignCards" disabled>
+                        <i class="fas fa-user-plus me-1"></i> Gán Thẻ
+                    </button>
+                    <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#returnCardsModal" id="btnReturnCards" disabled>
+                        <i class="fas fa-undo me-1"></i> Thu Hồi Thẻ
+                    </button>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importCardsModal">
+                            <i class="fas fa-file-excel me-1"></i> Nhập Excel
+                        </button>
+                        <a href="{{ url_for('export_card_data', format='excel', keyword=filters.keyword, department=filters.department, status=filters.status, issue_date_start=filters.issue_date_start, issue_date_end=filters.issue_date_end) }}" class="btn btn-outline-secondary" id="exportCardsButton">
+                            <i class="fas fa-file-export me-1"></i> Xuất Excel
+                        </a>
+                    </div>
+                    {% if current_user.role == 'admin' %}
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteAllCardsModal" title="Xóa toàn bộ dữ liệu thẻ">
+                        <i class="fas fa-exclamation-triangle me-1"></i> Xóa Toàn Bộ
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+             <div class="card-body border-bottom">
+                <form method="GET" action="{{ url_for('card_management_index') }}" class="filter-form">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-lg-3 col-md-6">
+                            <label for="keyword_filter_card" class="form-label form-label-sm">Từ khóa</label>
+                            <input type="text" class="form-control form-control-sm" id="keyword_filter_card" name="keyword" value="{{ filters.keyword or '' }}" placeholder="Số thẻ, UserID, UserName...">
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                             <label for="department_filter_card" class="form-label form-label-sm">Bộ phận</label>
+                             <select class="form-select form-select-sm" id="department_filter_card" name="department">
+                                 <option value="">Tất cả</option>
+                                 <option value="Customer" {% if filters.department == 'Customer' %}selected{% endif %}>Customer</option>
+                                 <option value="Employee" {% if filters.department == 'Employee' %}selected{% endif %}>Employee</option>
+                                 <option value="Temp_Worker" {% if filters.department == 'Temp_Worker' %}selected{% endif %}>Temp_Worker</option>
+                             </select>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                             <label for="status_filter_card" class="form-label form-label-sm">Trạng thái</label>
+                             <select class="form-select form-select-sm" id="status_filter_card" name="status">
+                                 <option value="">Tất cả</option>
+                                 <option value="Available" {% if filters.status == 'Available' %}selected{% endif %}>Available</option>
+                                 <option value="Using" {% if filters.status == 'Using' %}selected{% endif %}>Using</option>
+                                 <option value="Lost" {% if filters.status == 'Lost' %}selected{% endif %}>Lost</option> {# Thêm lựa chọn Lost #}
+                             </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4">
+                            <label for="issue_date_start_filter_card" class="form-label form-label-sm">Ngày cấp từ</label>
+                            <input type="date" class="form-control form-control-sm" id="issue_date_start_filter_card" name="issue_date_start" value="{{ filters.issue_date_start or '' }}">
+                        </div>
+                        <div class="col-lg-2 col-md-4">
+                             <label for="issue_date_end_filter_card" class="form-label form-label-sm">Ngày cấp đến</label>
+                            <input type="date" class="form-control form-control-sm" id="issue_date_end_filter_card" name="issue_date_end" value="{{ filters.issue_date_end or '' }}">
+                        </div>
+                        <div class="col-lg-1 col-md-12 d-flex align-items-end">
+                            <button class="btn btn-primary btn-sm w-100" type="submit" title="Lọc danh sách">
+                                <i class="fas fa-filter"></i>
+                            </button>
+                        </div>
+                        <div class="col-lg-1 col-md-12 d-flex align-items-end">
+                            {% if filters.keyword or filters.department or filters.status or filters.issue_date_start or filters.issue_date_end %}
+                            <a href="{{ url_for('card_management_index') }}" class="btn btn-outline-secondary btn-sm w-100" title="Xóa bộ lọc" id="clearCardFilters">
+                                <i class="fas fa-times"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-bordered mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" class="text-center-checkbox"><input type="checkbox" id="selectAllCards" class="form-check-input"></th>
+                                <th scope="col" class="text-center-stt">STT</th>
+                                <th scope="col">Số thẻ</th>
+                                <th scope="col">Bộ phận</th>
+                                <th scope="col">UserID</th>
+                                <th scope="col">UserName</th>
+                                <th scope="col" class="text-center">Trạng thái</th>
+                                <th scope="col">Ngày cấp</th>
+                                <th scope="col">Chi tiết</th>
+                                <th scope="col" class="text-center-actions">Hành Động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if cards %}
+                                {% for card in cards %}
+                                <tr>
+                                    <td class="text-center-checkbox"><input type="checkbox" class="form-check-input card-select-checkbox" name="card_ids" value="{{ card.id }}" data-status="{{ card.status }}"></td>
+                                    <td class="text-center-stt">{{ loop.index + pagination.first - 1 }}</td>
+                                    <td><code>{{ card.card_number }}</code></td>
+                                    <td>{{ card.department }}</td>
+                                    <td>{{ card.user_id_assigned or '' }}</td>
+                                    <td>{{ card.user_name_assigned or '' }}</td>
+                                    <td class="text-center">
+                                        {% if card.status == 'Using' %}
+                                            <span class="badge badge-using">Using</span>
+                                        {% elif card.status == 'Available' %}
+                                            <span class="badge badge-available">Available</span>
+                                        {% elif card.status == 'Lost' %} {# Hiển thị badge Lost #}
+                                            <span class="badge badge-lost">Lost</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ card.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ card.issue_date_display }}</td>
+                                    <td>
+                                        {% if card.details %}
+                                            {% set first_line = card.details.split('\n')[0] if card.details else '' %}
+                                            {{ first_line }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center-actions action-buttons">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('view_card_detail', card_id=card.id, page=pagination.page, keyword=filters.keyword, department=filters.department, status=filters.status, issue_date_start=filters.issue_date_start, issue_date_end=filters.issue_date_end) }}" class="btn btn-outline-info" title="Xem Chi Tiết">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {# Nút Báo mất thẻ - chỉ hiển thị nếu thẻ không phải là 'Lost' #}
+                                            {% if card.status != 'Lost' %}
+                                            <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#reportLostCardModal-{{ card.id }}" title="Báo Mất Thẻ">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </button>
+                                            {% endif %}
+                                            {# Nút Sửa - có thể ẩn nếu thẻ đã 'Lost' #}
+                                            <button type="button" class="btn btn-outline-primary {% if card.status == 'Lost' %}disabled{% endif %}" data-bs-toggle="modal" data-bs-target="#editCardModal-{{ card.id }}" title="Sửa" {% if card.status == 'Lost' %}disabled{% endif %}>
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteCardModal-{{ card.id }}" title="Xóa">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <div class="modal fade" id="editCardModal-{{ card.id }}" tabindex="-1" aria-labelledby="editCardModalLabel-{{ card.id }}" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="editCardModalLabel-{{ card.id }}"><i class="fas fa-edit me-2"></i>Chỉnh Sửa Thẻ: {{ card.card_number }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <form action="{{ url_for('edit_card_record', card_id=card.id, page=pagination.page, keyword=filters.keyword, department=filters.department, status=filters.status, issue_date_start=filters.issue_date_start, issue_date_end=filters.issue_date_end) }}" method="POST">
+                                                <div class="modal-body">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <label for="edit_card_number_{{ card.id }}" class="form-label">Số thẻ <span class="text-danger">*</span></label>
+                                                            <input type="text" class="form-control form-control-sm" id="edit_card_number_{{ card.id }}" name="card_number" value="{{ card.card_number }}" required>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="edit_department_{{ card.id }}" class="form-label">Bộ phận <span class="text-danger">*</span></label>
+                                                            <select class="form-select form-select-sm" id="edit_department_{{ card.id }}" name="department" required>
+                                                                <option value="Customer" {% if card.department == 'Customer' %}selected{% endif %}>Customer</option>
+                                                                <option value="Employee" {% if card.department == 'Employee' %}selected{% endif %}>Employee</option>
+                                                                <option value="Temp_Worker" {% if card.department == 'Temp_Worker' %}selected{% endif %}>Temp_Worker</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="edit_user_id_assigned_{{ card.id }}" class="form-label">UserID Người được cấp</label>
+                                                            <input type="text" class="form-control form-control-sm" id="edit_user_id_assigned_{{ card.id }}" name="user_id_assigned" value="{{ card.user_id_assigned or '' }}" {% if card.status == 'Lost' %}disabled{% endif %}>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="edit_user_name_assigned_{{ card.id }}" class="form-label">UserName Người được cấp</label>
+                                                            <input type="text" class="form-control form-control-sm" id="edit_user_name_assigned_{{ card.id }}" name="user_name_assigned" value="{{ card.user_name_assigned or '' }}" {% if card.status == 'Lost' %}disabled{% endif %}>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="edit_issue_date_{{ card.id }}" class="form-label">Ngày cấp</label>
+                                                            <input type="date" class="form-control form-control-sm" id="edit_issue_date_{{ card.id }}" name="issue_date" value="{{ card.issue_date.strftime('%Y-%m-%d') if card.issue_date else '' }}" {% if card.status == 'Lost' %}disabled{% endif %}>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="edit_status_card_{{ card.id }}" class="form-label">Trạng thái <span class="text-danger">*</span></label>
+                                                            <select class="form-select form-select-sm" id="edit_status_card_{{ card.id }}" name="status" required>
+                                                                <option value="Available" {% if card.status == 'Available' %}selected{% endif %}>Available</option>
+                                                                <option value="Using" {% if card.status == 'Using' %}selected{% endif %}>Using</option>
+                                                                <option value="Lost" {% if card.status == 'Lost' %}selected{% endif %}>Lost</option> {# Thêm Lost vào Sửa #}
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <label for="edit_details_card_{{ card.id }}" class="form-label">Chi tiết/Ghi chú</label>
+                                                            <textarea class="form-control form-control-sm" id="edit_details_card_{{ card.id }}" name="details" rows="3">{{ card.details or '' }}</textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                                                    <button type="submit" class="btn btn-primary btn-sm" {% if card.status == 'Lost' and current_user.role != 'admin' %}disabled{% endif %}><i class="fas fa-save me-1"></i> Lưu Thay Đổi</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal fade" id="deleteCardModal-{{ card.id }}" tabindex="-1" aria-labelledby="deleteCardModalLabel-{{ card.id }}" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="deleteCardModalLabel-{{ card.id }}"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Xác nhận Xóa Thẻ</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <form action="{{ url_for('delete_card_record', card_id=card.id) }}" method="POST">
+                                                {# Truyền các tham số filter và page để redirect đúng #}
+                                                <input type="hidden" name="page" value="{{ pagination.page if pagination else 1 }}">
+                                                <input type="hidden" name="keyword" value="{{ filters.keyword or '' }}">
+                                                <input type="hidden" name="department" value="{{ filters.department or '' }}">
+                                                <input type="hidden" name="status" value="{{ filters.status or '' }}">
+                                                <input type="hidden" name="issue_date_start" value="{{ filters.issue_date_start or '' }}">
+                                                <input type="hidden" name="issue_date_end" value="{{ filters.issue_date_end or '' }}">
+                                                <div class="modal-body text-start">
+                                                    <p>Bạn có chắc chắn muốn xóa thẻ <strong>{{ card.card_number }}</strong>?</p>
+                                                    <p class="text-danger">Hành động này không thể hoàn tác.</p>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                                                    <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash-alt me-1"></i> Xác nhận Xóa</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal fade" id="reportLostCardModal-{{ card.id }}" tabindex="-1" aria-labelledby="reportLostCardModalLabel-{{ card.id }}" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="reportLostCardModalLabel-{{ card.id }}"><i class="fas fa-user-slash text-danger me-2"></i>Báo Mất Thẻ: {{ card.card_number }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <form action="{{ url_for('report_lost_card', card_id=card.id) }}" method="POST">
+                                                {# Truyền các tham số filter và page để redirect đúng #}
+                                                <input type="hidden" name="page" value="{{ pagination.page if pagination else 1 }}">
+                                                <input type="hidden" name="keyword" value="{{ filters.keyword or '' }}">
+                                                <input type="hidden" name="department" value="{{ filters.department or '' }}">
+                                                <input type="hidden" name="status" value="{{ filters.status or '' }}">
+                                                <input type="hidden" name="issue_date_start" value="{{ filters.issue_date_start or '' }}">
+                                                <input type="hidden" name="issue_date_end" value="{{ filters.issue_date_end or '' }}">
+                                                <div class="modal-body text-start">
+                                                    <p>Bạn có chắc chắn muốn báo mất thẻ <strong>{{ card.card_number }}</strong>?</p>
+                                                    <p>Thao tác này sẽ chuyển trạng thái thẻ thành "Lost" và xóa thông tin người dùng hiện tại (nếu có).</p>
+                                                    <div class="mb-3">
+                                                        <label for="lost_reason_{{ card.id }}" class="form-label">Lý do báo mất (tùy chọn):</label>
+                                                        <textarea class="form-control form-control-sm" id="lost_reason_{{ card.id }}" name="lost_reason" rows="2"></textarea>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                                                    <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-exclamation-triangle me-1"></i> Xác Nhận Báo Mất</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="10" class="text-center py-4 text-muted">
+                                        {% if filters.keyword or filters.department or filters.status or filters.issue_date_start or filters.issue_date_end %}
+                                            Không tìm thấy thẻ nào phù hợp với bộ lọc của bạn. <a href="{{ url_for('card_management_index') }}">Xóa bộ lọc?</a>
+                                        {% else %}
+                                            Chưa có thẻ nào trong hệ thống.
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% if pagination and pagination.pages > 1 %}
+            <div class="card-footer bg-light">
+                 <nav aria-label="Page navigation Card">
+                     <ul class="pagination justify-content-center mb-0">
+                         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                             <a class="page-link" href="{{ url_for('card_management_index', page=1, **filters) }}" aria-label="First">
+                                 <span aria-hidden="true">&laquo;&laquo;</span>
+                             </a>
+                         </li>
+                         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                             <a class="page-link" href="{{ url_for('card_management_index', page=pagination.prev_num, **filters) }}" aria-label="Previous">
+                                 <span aria-hidden="true">&laquo;</span>
+                             </a>
+                         </li>
+                         {% for p_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if p_num %}
+                                {% if p_num == pagination.page %}
+                                    <li class="page-item active" aria-current="page"><span class="page-link">{{ p_num }}</span></li>
+                                {% else %}
+                                    <li class="page-item"><a class="page-link" href="{{ url_for('card_management_index', page=p_num, **filters) }}">{{ p_num }}</a></li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                            {% endif %}
+                         {% endfor %}
+                         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                             <a class="page-link" href="{{ url_for('card_management_index', page=pagination.next_num, **filters) }}" aria-label="Next">
+                                 <span aria-hidden="true">&raquo;</span>
+                             </a>
+                         </li>
+                          <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                             <a class="page-link" href="{{ url_for('card_management_index', page=pagination.pages, **filters) }}" aria-label="Last">
+                                 <span aria-hidden="true">&raquo;&raquo;</span>
+                             </a>
+                         </li>
+                     </ul>
+                 </nav>
+                 <p class="text-center text-muted small mt-2 mb-0">Trang {{ pagination.page }} / {{ pagination.pages }} (Tổng cộng {{ total_cards }} thẻ)</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="modal fade" id="addCardModal" tabindex="-1" aria-labelledby="addCardModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCardModalLabel"><i class="fas fa-plus-circle me-2"></i>Thêm Thẻ Mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('add_card_record') }}" method="POST">
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="add_card_number" class="form-label">Số thẻ <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" id="add_card_number" name="card_number" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="add_department" class="form-label">Bộ phận <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" id="add_department" name="department" required>
+                                    <option value="" selected disabled>Chọn bộ phận...</option>
+                                    <option value="Customer">Customer</option>
+                                    <option value="Employee">Employee</option>
+                                    <option value="Temp_Worker">Temp_Worker</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="add_user_id_assigned" class="form-label">UserID Người được cấp</label>
+                                <input type="text" class="form-control form-control-sm" id="add_user_id_assigned" name="user_id_assigned">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="add_user_name_assigned" class="form-label">UserName Người được cấp</label>
+                                <input type="text" class="form-control form-control-sm" id="add_user_name_assigned" name="user_name_assigned">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="add_issue_date" class="form-label">Ngày cấp</label>
+                                <input type="date" class="form-control form-control-sm" id="add_issue_date" name="issue_date">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="add_status_card" class="form-label">Trạng thái <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" id="add_status_card" name="status" required>
+                                    <option value="Available" selected>Available</option>
+                                    <option value="Using">Using</option>
+                                    <option value="Lost">Lost</option> {# Thêm Lost vào Thêm mới #}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label for="add_details_card" class="form-label">Chi tiết/Ghi chú</label>
+                                <textarea class="form-control form-control-sm" id="add_details_card" name="details" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save me-1"></i> Lưu Thẻ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="assignCardsModal" tabindex="-1" aria-labelledby="assignCardsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assignCardsModalLabel"><i class="fas fa-user-plus me-2"></i>Gán Thẻ Hàng Loạt</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('batch_assign_cards') }}" method="POST">
+                    <div class="modal-body">
+                        <p>Các thẻ sau (trạng thái "Available") sẽ được gán:</p>
+                        <ul id="cardsToAssignList" class="list-group mb-3" style="max-height: 150px; overflow-y: auto;">
+                            </ul>
+                        <input type="hidden" name="selected_card_ids_assign" id="selectedCardIdsAssignInput">
+                        <input type="hidden" name="page" value="{{ pagination.page if pagination else 1 }}">
+                        <input type="hidden" name="keyword" value="{{ filters.keyword or '' }}">
+                        <input type="hidden" name="department_filter_redirect" value="{{ filters.department or '' }}">
+                        <input type="hidden" name="status_filter_redirect" value="{{ filters.status or '' }}">
+                        <input type="hidden" name="issue_date_start_filter_redirect" value="{{ filters.issue_date_start or '' }}">
+                        <input type="hidden" name="issue_date_end_filter_redirect" value="{{ filters.issue_date_end or '' }}">
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="assign_user_id" class="form-label">UserID Người được cấp <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" id="assign_user_id" name="assign_user_id" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="assign_user_name" class="form-label">UserName Người được cấp <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" id="assign_user_name" name="assign_user_name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="assign_issue_date" class="form-label">Ngày cấp <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control form-control-sm" id="assign_issue_date" name="assign_issue_date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="assign_department" class="form-label">Bộ phận <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" id="assign_department" name="assign_department" required>
+                                    <option value="" selected disabled>Chọn bộ phận...</option>
+                                    <option value="Customer">Customer</option>
+                                    <option value="Employee">Employee</option>
+                                    <option value="Temp_Worker">Temp_Worker</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-check-circle me-1"></i> Xác Nhận Gán</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="returnCardsModal" tabindex="-1" aria-labelledby="returnCardsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="returnCardsModalLabel"><i class="fas fa-undo me-2"></i>Thu Hồi Thẻ Hàng Loạt</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('batch_return_cards') }}" method="POST">
+                    <div class="modal-body">
+                        <p>Các thẻ sau (trạng thái "Using") sẽ được thu hồi:</p>
+                        <ul id="cardsToReturnList" class="list-group mb-3" style="max-height: 150px; overflow-y: auto;">
+                            </ul>
+                        <input type="hidden" name="selected_card_ids_return" id="selectedCardIdsReturnInput">
+                        <input type="hidden" name="page" value="{{ pagination.page if pagination else 1 }}">
+                        <input type="hidden" name="keyword" value="{{ filters.keyword or '' }}">
+                        <input type="hidden" name="department_filter_redirect" value="{{ filters.department or '' }}">
+                        <input type="hidden" name="status_filter_redirect" value="{{ filters.status or '' }}">
+                        <input type="hidden" name="issue_date_start_filter_redirect" value="{{ filters.issue_date_start or '' }}">
+                        <input type="hidden" name="issue_date_end_filter_redirect" value="{{ filters.issue_date_end or '' }}">
+                        <div class="mb-3">
+                            <label for="return_details" class="form-label">Ghi chú khi thu hồi (tùy chọn):</label>
+                            <textarea class="form-control form-control-sm" id="return_details" name="return_details" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-undo me-1"></i> Xác Nhận Thu Hồi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% if current_user.role == 'admin' %}
+    <div class="modal fade" id="deleteAllCardsModal" tabindex="-1" aria-labelledby="deleteAllCardsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-danger">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteAllCardsModalLabel"><i class="fas fa-exclamation-triangle me-2"></i>Xác Nhận Xóa Toàn Bộ Thẻ</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('delete_all_cards') }}" method="post"> 
+                    <div class="modal-body">
+                        <p class="text-danger fw-bold">CẢNH BÁO! Hành động này KHÔNG THỂ hoàn tác.</p>
+                        <p>Bạn có chắc chắn muốn xóa <strong>TOÀN BỘ</strong> dữ liệu thẻ khỏi hệ thống không?</p>
+                        <div class="mb-3">
+                            <label for="deletePasswordCards" class="form-label">Nhập mật khẩu xác nhận:</label>
+                            <input type="password" class="form-control form-control-sm" id="deletePasswordCards" name="password" required autocomplete="current-password">
+                            <div class="form-text">Nhập mật khẩu đã được cấu hình để xác nhận xóa.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy bỏ</button>
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash-alt me-1"></i> Xác Nhận Xóa Toàn Bộ
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="modal fade" id="importCardsModal" tabindex="-1" aria-labelledby="importCardsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importCardsModalLabel"><i class="fas fa-file-excel me-2"></i>Nhập Thẻ từ Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('import_cards') }}" method="post" enctype="multipart/form-data"> 
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="cardExcelFile" class="form-label">Chọn File Excel (.xlsx):</label>
+                            <input class="form-control form-control-sm" type="file" id="cardExcelFile" name="file" accept=".xlsx" required>
+                        </div>
+                        <div class="alert alert-info small">
+                            <p class="mb-1"><strong>Lưu ý cấu trúc file Excel:</strong></p>
+                            <ul>
+                                <li>Cột bắt buộc: "So The" (hoặc "card_number"), "Bo Phan" (hoặc "department").</li>
+                                <li>Cột tùy chọn: "UserID Nguoi Cap", "UserName Nguoi Cap", "Trang Thai" (Available/Using/Lost), "Ngay Cap" (dd/mm/yyyy hoặc yyyy-mm-dd), "Chi Tiet" (hoặc "Ghi Chu").</li>
+                                <li>Nếu "So The" đã tồn tại, bản ghi sẽ được cập nhật. Ngược lại, bản ghi mới sẽ được tạo.</li>
+                                <li>Trường "Trang Thai" nếu để trống hoặc không hợp lệ khi thêm mới sẽ mặc định là "Available". Nếu là "Lost", thông tin người cấp sẽ bị bỏ qua.</li>
+                                <li>Nếu "Trang Thai" là "Using" thì "UserID Nguoi Cap", "UserName Nguoi Cap", "Ngay Cap" nên được cung cấp và hợp lệ.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-upload me-1"></i> Xác Nhận Nhập
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }} {# Kế thừa scripts từ base.html nếu có #}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // --- DI CHUYỂN MODALS EDIT, DELETE VÀ REPORT LOST RA BODY ---
+    document.querySelectorAll('[id^="editCardModal-"], [id^="deleteCardModal-"], [id^="reportLostCardModal-"]').forEach(function(modalElement) {
+        document.body.appendChild(modalElement);
+    });
+    // --- KẾT THÚC DI CHUYỂN MODALS ---
+
+    // --- Khởi tạo các biểu đồ ---
+    function createPieChart(canvasId, labels, dataValues, chartTitle) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            return null;
+        }
+        let existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+
+        const numericData = dataValues.map(val => Number(val) || 0);
+        const total = numericData.reduce((a, b) => a + b, 0);
+        
+        // Cập nhật màu sắc để bao gồm "Lost"
+        const backgroundColors = [
+            'rgba(75, 192, 192, 0.7)',  // Available (Green)
+            'rgba(255, 206, 86, 0.7)', // Using (Yellow)
+            'rgba(220, 53, 69, 0.7)',  // Lost (Red)
+            'rgba(153, 102, 255, 0.7)',// Purple (cho các trạng thái khác nếu có)
+            'rgba(255, 159, 64, 0.7)'  // Orange
+        ];
+        const borderColors = [
+            'rgba(75, 192, 192, 1)',
+            'rgba(255, 206, 86, 1)',
+            'rgba(220, 53, 69, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)'
+        ];
+
+        return new Chart(ctx.getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: labels, // labels sẽ là ['Available', 'Using', 'Lost']
+                datasets: [{
+                    label: chartTitle,
+                    data: numericData, // dataValues sẽ tương ứng [availableCount, usingCount, lostCount]
+                    backgroundColor: backgroundColors.slice(0, numericData.length),
+                    borderColor: borderColors.slice(0, numericData.length),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 10, font: { size: 10 } }
+                    },
+                    title: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) { label += ': '; }
+                                const value = context.raw || 0;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                return `${label}${value.toLocaleString('vi-VN')} (${percentage})`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    const chartStatsData = JSON.parse('{{ chart_stats | tojson | safe }}');
+    console.log("Dữ liệu thống kê thẻ (đã cập nhật cho Lost):", chartStatsData);
+
+    const chartLabels = ['Có Sẵn', 'Đang Dùng', 'Bị Mất']; // Cập nhật nhãn
+
+    if (chartStatsData && chartStatsData.overall) {
+        createPieChart('overallCardChart', 
+            chartLabels, 
+            [chartStatsData.overall.available, chartStatsData.overall.using, chartStatsData.overall.lost], 
+            'Tổng Quan Thẻ'
+        );
+    }
+    if (chartStatsData && chartStatsData.Customer) {
+        createPieChart('customerCardChart', 
+            chartLabels, 
+            [chartStatsData.Customer.available, chartStatsData.Customer.using, chartStatsData.Customer.lost], 
+            'BP. Customer'
+        );
+    }
+    if (chartStatsData && chartStatsData.Employee) {
+        createPieChart('employeeCardChart', 
+            chartLabels, 
+            [chartStatsData.Employee.available, chartStatsData.Employee.using, chartStatsData.Employee.lost], 
+            'BP. Employee'
+        );
+    }
+    if (chartStatsData && chartStatsData.Temp_Worker) {
+        createPieChart('tempWorkerCardChart', 
+            chartLabels, 
+            [chartStatsData.Temp_Worker.available, chartStatsData.Temp_Worker.using, chartStatsData.Temp_Worker.lost], 
+            'BP. Temp_Worker'
+        );
+    }
+
+    // --- Logic xử lý checkbox chọn thẻ (giữ nguyên) ---
+    const selectAllCheckbox = document.getElementById('selectAllCards');
+    const cardCheckboxes = document.querySelectorAll('.card-select-checkbox');
+    const btnAssignCards = document.getElementById('btnAssignCards');
+    const btnReturnCards = document.getElementById('btnReturnCards');
+    const cardsToAssignList = document.getElementById('cardsToAssignList');
+    const cardsToReturnList = document.getElementById('cardsToReturnList');
+    const selectedCardIdsAssignInput = document.getElementById('selectedCardIdsAssignInput');
+    const selectedCardIdsReturnInput = document.getElementById('selectedCardIdsReturnInput');
+
+    function getSelectedCards() {
+        const selected = [];
+        cardCheckboxes.forEach(cb => {
+            if (cb.checked) {
+                const row = cb.closest('tr');
+                selected.push({
+                    id: cb.value,
+                    status: cb.dataset.status,
+                    cardNumber: row.cells[2].textContent.trim(),
+                    userName: row.cells[5].textContent.trim() || 'N/A'
+                });
+            }
+        });
+        return selected;
+    }
+
+    function updateBulkActionButtons() {
+        const selectedCards = getSelectedCards();
+        let canAssign = false;
+        let canReturn = false;
+
+        if (selectedCards.length > 0) {
+            canAssign = selectedCards.every(card => card.status === 'Available');
+            canReturn = selectedCards.every(card => card.status === 'Using');
+        }
+
+        if (btnAssignCards) btnAssignCards.disabled = !canAssign;
+        if (btnReturnCards) btnReturnCards.disabled = !canReturn;
+
+        if (cardsToAssignList && selectedCardIdsAssignInput) {
+            cardsToAssignList.innerHTML = '';
+            let idsToAssign = [];
+            if (canAssign && selectedCards.length > 0) {
+                 selectedCards.forEach(card => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item list-group-item-sm py-1';
+                    li.textContent = `${card.cardNumber}`;
+                    cardsToAssignList.appendChild(li);
+                    idsToAssign.push(card.id);
+                });
+            }
+            selectedCardIdsAssignInput.value = idsToAssign.join(',');
+        }
+
+        if (cardsToReturnList && selectedCardIdsReturnInput) {
+            cardsToReturnList.innerHTML = '';
+            let idsToReturn = [];
+            if (canReturn && selectedCards.length > 0) {
+                selectedCards.forEach(card => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item list-group-item-sm py-1';
+                    li.textContent = `${card.cardNumber} (User: ${card.userName})`;
+                    cardsToReturnList.appendChild(li);
+                    idsToReturn.push(card.id);
+                });
+            }
+             selectedCardIdsReturnInput.value = idsToReturn.join(',');
+        }
+    }
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function () {
+            cardCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateBulkActionButtons();
+        });
+    }
+
+    cardCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function () {
+            if (selectAllCheckbox) {
+                if (!this.checked) {
+                    selectAllCheckbox.checked = false;
+                } else {
+                    const allChecked = Array.from(cardCheckboxes).every(cb => cb.checked);
+                    selectAllCheckbox.checked = allChecked;
+                }
+            }
+            updateBulkActionButtons();
+        });
+    });
+    updateBulkActionButtons();
+
+    const clearCardFiltersBtn = document.getElementById('clearCardFilters');
+    if(clearCardFiltersBtn) {
+        clearCardFiltersBtn.addEventListener('click', function(e) {
+            e.preventDefault(); 
+            const filterForm = this.closest('form'); 
+            if (filterForm) {
+                filterForm.querySelectorAll('input[type="text"], input[type="date"], select').forEach(input => {
+                    if(input.type === 'checkbox' || input.type === 'radio') {
+                        input.checked = false;
+                    } else if (input.tagName.toLowerCase() === 'select') {
+                        input.selectedIndex = 0; 
+                    }
+                    else {
+                        input.value = '';
+                    }
+                });
+                filterForm.submit();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

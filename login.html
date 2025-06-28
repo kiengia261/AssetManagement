@@ -1,0 +1,76 @@
+{# === templates/login.html === #}
+{% extends 'base.html' %}
+
+{% block title %}Đăng Nhập{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0 text-center"><i class="bi bi-box-arrow-in-right me-2"></i>Đăng Nhập Hệ Thống</h4>
+            </div>
+            <div class="card-body">
+                {# --- Hiển thị Flash Messages --- #}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {# --- Form Đăng Nhập --- #}
+                <form method="POST" action="{{ url_for('login') }}">
+                    {# Trường ẩn CSRF token (nếu bạn dùng Flask-WTF, còn không thì bỏ qua) #}
+                    {# {{ form.hidden_tag() }} #}
+
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Tên đăng nhập</label>
+                        <div class="input-group">
+                             <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+                             <input type="text" class="form-control" id="username" name="username" required autofocus>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Mật khẩu</label>
+                        <div class="input-group">
+                             <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                             <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="remember" name="remember" value="1">
+                        <label class="form-check-label" for="remember">Ghi nhớ đăng nhập</label>
+                    </div>
+
+                    <div class="d-grid">
+                         <button type="submit" class="btn btn-primary btn-block">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Đăng Nhập
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+         {# Có thể thêm link quên mật khẩu hoặc đăng ký ở đây nếu cần #}
+         {# <div class="text-center mt-3">
+             <a href="#">Quên mật khẩu?</a> | <a href="#">Đăng ký</a>
+         </div> #}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{# Bạn có thể thêm CSS/JS cụ thể cho trang login ở đây nếu cần #}
+<style>
+    /* Có thể thêm CSS tùy chỉnh */
+    body {
+        background-color: #f4f7f6; /* Màu nền nhẹ cho trang login */
+    }
+</style>
+{% endblock %}

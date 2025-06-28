@@ -1,0 +1,205 @@
+/* === static/style.css === */
+
+/* --- Phần CSS cũ của bạn (Giữ nguyên) --- */
+body {
+    padding-bottom: 30px;
+    background-color: #f8f9fa;
+}
+
+/* Container cũ - Điều chỉnh nếu cần */
+/* .container {
+    max-width: 1140px;
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.075);
+    margin-top: 20px;
+} */
+/* Sử dụng container-fluid trong các template mới nên style này có thể không cần nữa
+   hoặc cần điều chỉnh cho phù hợp với layout chung */
+
+
+/* --- FEATURE 4: STATISTICS (Giữ nguyên hoặc điều chỉnh chiều cao nếu xung đột) --- */
+/* CSS cũ cho thống kê IP */
+.statistics-row > div {
+    margin-bottom: 1rem; /* Đã có trong index.html mới */
+}
+.stat-card { /* Card thống kê IP cũ */
+    height: 100%;
+}
+.stat-card .card-body {
+    padding: 0.75rem;
+}
+.stat-card .card-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+.stat-card .card-text {
+    font-size: 1.1rem;
+}
+
+/* --- Bảng dữ liệu (index.html - Giữ nguyên) --- */
+.table td:last-child,
+.table th:last-child {
+    /* text-align: center; - Đã có class text-center */
+    white-space: nowrap;
+}
+.table thead th {
+     vertical-align: middle;
+}
+.img-thumbnail-small { /* Đã có trong index.html mới */
+    max-width: 50px;
+    max-height: 50px;
+    object-fit: cover;
+    border-radius: 0.25rem;
+}
+
+/* --- Form Edit (edit.html - Giữ nguyên) --- */
+.image-preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 10px;
+    padding: 15px;
+    background-color: #e9ecef;
+    border-radius: 0.375rem;
+}
+.image-preview-item {
+    border: 1px solid #ced4da;
+    padding: 10px;
+    text-align: center;
+    background-color: #ffffff;
+    border-radius: 0.375rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    transition: transform 0.2s ease-in-out;
+}
+.image-preview-item:hover {
+    transform: translateY(-3px);
+}
+.image-preview-item img {
+    max-width: 150px; /* Có thể điều chỉnh */
+    max-height: 150px; /* Có thể điều chỉnh */
+    display: block;
+    margin-bottom: 10px;
+    object-fit: cover;
+    border-radius: 0.25rem;
+}
+
+/* --- Trang View Images (view_images.html - Giữ nguyên) --- */
+.card-img-top.img-fluid { /* Đã cập nhật class trong view_images.html */
+     /* height: 200px; - Đã set inline style */
+     /* object-fit: cover; - Đã set inline style */
+     /* padding: 0; */
+     border-bottom: 1px solid #dee2e6;
+     border-radius: calc(0.375rem - 1px) calc(0.375rem - 1px) 0 0; /* Điều chỉnh border-radius cho card-img-top */
+}
+.card.h-100 {
+     transition: box-shadow 0.2s ease-in-out;
+}
+.card.h-100:hover {
+     box-shadow: 0 4px 15px rgba(0,0,0,.15);
+}
+
+/* --- Chung (Giữ nguyên) --- */
+.form-label .text-danger {
+    font-size: 0.9em;
+    vertical-align: super;
+    margin-left: 2px;
+}
+.input-group > .btn.btn-outline-danger {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* === CSS MỚI CHO NHẬT KÝ CÔNG VIỆC (Theo kế hoạch ver2) === */
+
+/* Định nghĩa lại/Thêm cho chart-container nếu cần chiều cao khác */
+.chart-container {
+    position: relative;
+    /* height: 25vh; */ /* Chiều cao có thể khác nhau tùy vị trí, nên set inline hoặc cụ thể hơn */
+    min-height: 200px; /* Đảm bảo chiều cao tối thiểu cho biểu đồ */
+    width: 100%;
+}
+.chart-canvas {
+    max-height: 45vh; /* Giới hạn chiều cao tối đa */
+    min-width: 45vh; /*!important;
+}
+
+/* Định dạng các card trong trang work_log và index */
+.work-log-card {
+    transition: transform 0.2s;
+    /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); */ /* Đã có shadow-sm của Bootstrap */
+}
+
+.summary-link {
+    text-decoration: none;
+    color: inherit; /* Kế thừa màu chữ */
+}
+
+
+/* Định dạng bảng trong trang work_log */
+.table-work-log th {
+    /* background-color: #f8f9fa; */ /* Đã có class table-light */
+    white-space: nowrap; /* Ngăn tiêu đề xuống dòng */
+}
+
+.table-work-log tr:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.05); /* Hiệu ứng hover nhẹ */
+}
+
+/* Chi phí format */
+.cost-value {
+    font-weight: 500; /* Hơi đậm hơn */
+    color: var(--bs-success); /* Màu xanh lá cây */
+    white-space: nowrap; /* Không xuống dòng */
+}
+
+/* Căn chỉnh form lọc trong work_log.html đẹp hơn trên màn hình nhỏ */
+@media (max-width: 991.98px) {
+    .work-log-filter-form .d-flex {
+        margin-top: 0.5rem; /* Thêm khoảng cách trên màn hình nhỏ */
+    }
+}
+/* Nút xóa nguy hiểm */
+.btn-danger-custom {
+    background: linear-gradient(145deg, #dc3545, #c82333);
+    border: 2px solid #ffc107;
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(220, 53, 69, 0.3);
+}
+
+.btn-danger-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
+}
+
+/* Tabs */
+.nav-tabs .nav-link {
+    font-size: 1.1rem;
+    color: #6c757d;
+    border: none;
+    position: relative;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    border-bottom: 3px solid #0d6efd;
+    background: transparent;
+}
+
+.nav-tabs .nav-link:hover:not(.active) {
+    color: #0d6efd;
+}
+
+/* Modal xóa */
+#deleteAllDataModal .alert-danger {
+    border-left: 4px solid #dc3545;
+    background-color: #fff3f3;
+}
+
+#deleteAllDataModal .form-check-label {
+    font-weight: 500;
+}

@@ -1,0 +1,105 @@
+{# === templates/navbar.html (Phiên bản hoàn thiện) === #}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
+    <div class="container-fluid">
+        {# Điều chỉnh link của Navbar Brand dựa trên vai trò người dùng #}
+        {% if current_user.is_authenticated and current_user.role == 'card_user' %}
+            <a class="navbar-brand" href="{{ url_for('card_management_index') }}">
+                <i class="fas fa-shield-alt me-2"></i> App Quản Lý
+            </a>
+        {% else %}
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-shield-alt me-2"></i> App Quản Lý
+            </a>
+        {% endif %}
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNavDropdown">
+            {# --- Menu bên trái (Nếu đã đăng nhập) --- #}
+            {% if current_user.is_authenticated %}
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+                {# CHỈNH SỬA: Nhóm Dashboard TB và Nhật ký Công việc, cấp quyền cho device_log_user #}
+                {% if current_user.role in ['admin', 'basic_user', 'device_log_user'] %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" aria-current="page" href="{{ url_for('index') }}">
+                        <i class="fas fa-tachometer-alt me-1"></i> Dashboard TB
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'work_log' %}active{% endif %}" href="{{ url_for('work_log') }}">
+                        <i class="fas fa-clipboard-list me-1"></i> Nhật ký Công việc
+                    </a>
+                </li>
+                {% endif %}
+
+                {# Các Tab Chứng Khoán - Chỉ admin và stock_user thấy #}
+                {% if current_user.role in ['admin', 'stock_user'] %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'stock_journal' %}active{% endif %}" href="{{ url_for('stock_journal') }}">
+                        <i class="fas fa-chart-line me-1"></i> Nhật ký Chứng khoán
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'manage_performance_data' %}active{% endif %}" href="{{ url_for('manage_performance_data') }}">
+                        <i class="fas fa-file-invoice-dollar me-1"></i> Quản lý NAV/VNI
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'foreign_investment_charts' %}active{% endif %}" href="{{ url_for('foreign_investment_charts') }}">
+                        <i class="bi bi-globe2 me-1"></i> Biểu đồ GDNN
+                    </a>
+                </li>
+                {% endif %}
+                
+                {# Tab Quản lý Thẻ & Suất Ăn - Chỉ admin và card_user thấy #}
+                {% if current_user.role in ['admin', 'card_user'] %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'card_management_index' %}active{% endif %}" href="{{ url_for('card_management_index') }}">
+                        <i class="bi bi-credit-card-2-front-fill me-1"></i> Quản lý Thẻ
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'meal_management_dashboard' %}active{% endif %}" href="{{ url_for('meal_management_dashboard') }}">
+                        <i class="fas fa-utensils me-1"></i> Quản lý Suất Ăn
+                    </a>
+                </li>
+                {% endif %}
+
+            </ul>
+            {% endif %}
+
+            {# --- Menu bên phải (Thông tin user và Login/Logout) --- #}
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                 {% if current_user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                         <a class="nav-link dropdown-toggle" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-circle me-1"></i> {{ current_user.username }} ({{ current_user.role }})
+                         </a>
+                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
+                            {% if current_user.role == 'admin' %}
+                            {# Sử dụng hàm endpoint_exists từ context_processor để tránh lỗi nếu route không tồn tại #}
+                            {% set admin_tools_url = url_for('admin_tools') if endpoint_exists('admin_tools') else '#' %}
+                            <li><a class="dropdown-item {% if request.endpoint == 'admin_tools' %}active{% endif %}" href="{{ admin_tools_url }}"><i class="fas fa-tools me-2"></i>Công cụ Admin</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('logout') }}">
+                                    <i class="fas fa-sign-out-alt me-2"></i> Đăng xuất
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'login' %}active{% endif %}" href="{{ url_for('login') }}">
+                             <i class="fas fa-sign-in-alt me-1"></i> Đăng nhập
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>

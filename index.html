@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Quản lý Thiết bị - Copyright by. </title>
+    {# *** Form Import đã được XÓA khỏi vị trí này *** #}
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" xintegrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    {# Giữ lại style cục bộ nếu bạn không dùng extends base.html #}
+    <style>
+        .notification-icon { position: relative; }
+        .notification-badge { position: absolute; top: -10px; right: -10px; padding: 3px 6px; border-radius: 50%; background-color: red; color: white; font-size: 12px; }
+        .table th, .table td { vertical-align: middle; }
+        .img-thumbnail-small { max-width: 50px; max-height: 50px; object-fit: cover; border-radius: 0.25rem; }
+         .chart-container { position: relative; height: 15vh; width: 100%; } /* Giữ nguyên chiều cao */
+         .chart-canvas { width: 100% !important; max-height: 40vh; }
+         .statistics-row > div { margin-bottom: 1rem; }
+         .summary-link { text-decoration: none; }
+         .summary-link .card:hover { border-color: var(--bs-primary); box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
+        /* --- START: CSS Bổ sung cho biểu đồ cột --- */
+        .bar-chart-container { /* Container mới có thể cần chiều cao khác */
+             position: relative;
+             height: 25vh; /* Đặt lại chiều cao nếu cần */
+             width: 100%;
+             min-height: 180px; /* Chiều cao tối thiểu */
+        }
+        /* --- END: CSS Bổ sung cho biểu đồ cột --- */
+    </style>
+</head>
+<body>
+    {% include 'navbar.html' ignore missing %}
+
+    <div class="container-fluid mt-4">
+        <h1 class="text-center mb-4">Hệ thống quản lý thiết bị và chi phí - Mr. KienIT</h1>
+
+        {# --- Hiển thị Flash Messages --- #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# --- Thông báo bảo trì (Giữ nguyên) --- #}
+        {% if notifications %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+             <h5 class="alert-heading"><i class="fas fa-bell me-2"></i>Thông báo bảo trì!</h5>
+            <ul class="mb-0">
+                {% for notification in notifications %}
+                <li>{{ notification }}</li>
+                {% endfor %}
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
+        {# --- Hàng Thống kê & Tóm tắt Nhật ký --- #}
+        <div class="row mb-4 statistics-row">
+             {# === START: THAY ĐỔI Biểu đồ 1: Thống kê loại thiết bị === #}
+             <div class="col-lg-3 col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0"><i class="fas fa-chart-bar me-2"></i>Thống kê Loại Thiết bị</h5>
+                    </div>
+                    <div class="card-body bar-chart-container"> {# Thay đổi container và class #}
+                         <canvas id="deviceTypeChart" class="chart-canvas"></canvas> {# Thay thế h1 bằng canvas #}
+                    </div>
+                </div>
+            </div>
+             {# === END: THAY ĐỔI Biểu đồ 1 === #}
+
+             {# Biểu đồ 2: Thống kê IP (Giữ nguyên) #}
+            <div class="col-lg-3 col-md-6">
+                <div class="card h-100 shadow-sm">
+                     <div class="card-header bg-danger text-white"> <h5 class="card-title mb-0"><i class="fas fa-chart-pie me-2"></i>Tỷ lệ Sử dụng IP Tổng</h5> </div>
+                    <div class="card-body chart-container"> <canvas id="ipUsageChart" class="chart-canvas"></canvas> </div>
+                </div>
+            </div>
+
+             {# === START: THAY ĐỔI Biểu đồ 3: Tóm tắt Nhật ký (Theo Tháng) === #}
+             <div class="col-lg-6 col-md-12">
+                  <a href="{{ url_for('work_log') }}" class="summary-link">
+                     <div class="card h-100 shadow-sm">
+                          <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                              <h5 class="card-title mb-0"><i class="bi bi-calendar-check-fill me-2"></i>Tóm Tắt Nhật Ký (Tháng Này)</h5> {# Thay đổi tiêu đề #}
+                              <span class="badge bg-light text-dark">Xem chi tiết <i class="bi bi-arrow-right-short"></i></span>
+                          </div>
+                         <div class="card-body">
+                             <div class="row">
+                                 <div class="col-md-5 chart-container"> <canvas id="workLogActivityChart" class="chart-canvas"></canvas> </div>
+                                 <div class="col-md-7 d-flex flex-column justify-content-center">
+                                     <div class="mb-2">
+                                         <h6 class="mb-1">Tổng Chi Phí (Tháng Này):</h6> {# Thay đổi nhãn thời gian #}
+                                         <p class="fs-5 fw-bold text-success mb-0 cost-value">{{ work_log_summary.total_cost | currency_format }}</p>
+                                    </div>
+                                     <div class="mt-2">
+                                         <h6 class="mb-1">Thiết Bị Xử Lý Nhiều Nhất (Tháng Này):</h6> {# Thay đổi nhãn thời gian #}
+                                         {% if work_log_summary.device_data %}
+                                         <ul class="list-unstyled small mb-0"> {% for device in work_log_summary.device_data %} <li> <span class="badge bg-secondary me-1">{{ device.count }}</span> <code>{{ device.device_identifier or '(không rõ)' }}</code> </li> {% endfor %} </ul>
+                                         {% else %} <p class="small text-muted mb-0">Không có dữ liệu.</p> {% endif %}
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                 </a>
+             </div>
+             {# === END: THAY ĐỔI Biểu đồ 3 === #}
+        </div>{# Kết thúc statistics-row #}
+
+        {# --- Cấu trúc Tabs (Giữ nguyên) --- #}
+         <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="records-tab" data-bs-toggle="tab" data-bs-target="#records" type="button" role="tab" aria-controls="records" aria-selected="true"> <i class="fas fa-list me-1"></i>Danh sách Thiết bị </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="add-record-tab" data-bs-toggle="tab" data-bs-target="#add-record" type="button" role="tab" aria-controls="add-record" aria-selected="false"> <i class="fas fa-plus-circle me-1"></i>Thêm Thiết bị mới </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="import-tab" data-bs-toggle="tab" data-bs-target="#import" type="button" role="tab" aria-controls="import" aria-selected="false"> <i class="fas fa-file-excel me-1"></i>Nhập từ Excel </button>
+            </li>
+        </ul>
+
+        {# --- Nội dung Tabs (Giữ nguyên phần còn lại) --- #}
+        <div class="tab-content mt-3" id="myTabContent">
+
+            {# --- Khung Nội dung Tab Danh sách Thiết bị (Mặc định active và show) --- #}
+            <div class="tab-pane fade show active" id="records" role="tabpanel" aria-labelledby="records-tab">
+                {# --- Nội dung của Tab Danh sách Thiết bị (Card, Form lọc, Bảng, Phân trang) --- #}
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light">
+                         {# === THÊM MỚI: Sử dụng d-flex justify-content-between để căn chỉnh === #}
+                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h5 class="mb-0 me-auto">Danh sách Thiết bị</h5> {# me-auto để đẩy các nút sang phải #}
+                             {# Nhóm nút chức năng bên phải #}
+                             <div class="d-flex gap-2">
+                                <div class="btn-group btn-group-sm"> {# Giữ nguyên nhóm nút xuất file #}
+                                    <a href="{{ url_for('export_data', format='csv', keyword=keyword, start_date=start_date, end_date=end_date) }}" class="btn btn-outline-secondary"> <i class="fas fa-file-csv me-1"></i>Xuất CSV </a>
+                                    <a href="{{ url_for('export_data', format='excel', keyword=keyword, start_date=start_date, end_date=end_date) }}" class="btn btn-outline-success"> <i class="fas fa-file-excel me-1"></i>Xuất Excel </a>
+                                </div>
+                                {# === THÊM MỚI: Nút Xóa Toàn Bộ Thiết Bị === #}
+                                {% if pagination and pagination.total > 0 %} {# Chỉ hiển thị nút nếu có dữ liệu #}
+                                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteAllRecordsModal" title="Xóa toàn bộ dữ liệu thiết bị">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> Xóa Toàn Bộ
+                                </button>
+                                {% endif %}
+                                {# === KẾT THÚC THÊM MỚI === #}
+                            </div>
+                        </div>
+                         {# === KẾT THÚC THAY ĐỔI D-FLEX === #}
+                    </div>
+                    <div class="card-body">
+                         {# Form lọc thiết bị (Giữ nguyên) #}
+                          <form method="get" action="{{ url_for('index') }}" class="mb-4 p-3 border rounded bg-light">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-lg-4 col-md-6"> <div class="input-group"> <span class="input-group-text"><i class="fas fa-search"></i></span> <input type="text" class="form-control" id="keywordInput" name="keyword" value="{{ keyword or '' }}" placeholder="Tìm theo MAC, IP, User, Loại, Trạng thái..."> </div> </div>
+                                <div class="col-lg-3 col-md-6"> <div class="input-group"> <span class="input-group-text"><i class="fas fa-calendar-alt"></i>&nbsp;Từ</span> <input type="date" class="form-control" id="startDateInput" name="start_date" value="{{ start_date or '' }}"> </div> </div>
+                                <div class="col-lg-3 col-md-6"> <div class="input-group"> <span class="input-group-text"><i class="fas fa-calendar-alt"></i>&nbsp;Đến</span> <input type="date" class="form-control" id="endDateInput" name="end_date" value="{{ end_date or '' }}"> </div> </div>
+                                <div class="col-lg-2 col-md-6 d-flex"> <button class="btn btn-primary w-100 me-2" type="submit"> <i class="fas fa-filter me-1"></i>Lọc </button> {% if keyword or start_date or end_date %} <a href="{{ url_for('index') }}" class="btn btn-outline-danger w-auto" title="Xóa bộ lọc"> <i class="fas fa-times"></i> </a> {% endif %} </div>
+                            </div>
+                          </form>
+
+                         {# Bảng danh sách thiết bị #}
+                          <div class="table-responsive">
+                            <table class="table table-striped table-hover table-bordered align-middle">
+                                <thead class="table-dark"> <tr> <th>MAC Address</th> <th>IP Address</th> <th>Username</th> <th>Loại TB</th> <th>Trạng thái</th> <th>Ngày Ghi Nhận</th> <th>Chi tiết</th> <th class="text-center">Ảnh</th> <th class="text-center">Hành động</th> </tr> </thead>
+                                <tbody>
+                                    {# Lặp qua records và hiển thị dòng (tr) #}
+                                    {% if records %}
+                                        {% for record in records %}
+                                        <tr>
+                                            <td><code>{{ record.mac_address }}</code></td>
+                                            <td>{{ record.ip_address or '' }}</td>
+                                            <td>{{ record.username or '' }}</td>
+                                            <td>{{ record.device_type or '' }}</td>
+                                            <td>{{ record.status | nl2br | truncate(50, True) if record.status else '' }}</td>
+                                            <td>{{ record.record_date_display }}</td>
+                                            <td>{{ record.details | nl2br| truncate(80, True) if record.details else '' }}</td>
+                                            <td class="text-center"> {# Ảnh #} 
+                                                {% if record.first_image_path %} 
+                                                    <a href="{{ url_for('uploaded_file', filename=record.first_image_path) }}" target="_blank"> 
+                                                        <img src="{{ url_for('uploaded_file', filename=record.first_image_path) }}" class="img-thumbnail-small" alt="Thumbnail"> 
+                                                    </a> 
+                                                {% else %} 
+                                                    <span class="text-muted small">(K/có)</span> 
+                                                {% endif %} 
+                                            </td>
+                                            <td class="text-center"> {# Hành động #}
+                                                <div class="btn-group btn-group-sm">
+                                                    {# Nút Xem chi tiết - Đã đúng, trỏ đến 'edit_record' (route /record/view/<id>) #}
+                                                    <a href="{{ url_for('edit_record', record_id=record.id, page=page, keyword=keyword, start_date=start_date, end_date=end_date) }}" class="btn btn-info" title="Xem chi tiết và lịch sử"><i class="fas fa-eye"></i></a>
+                                                    {# Nút Chỉnh sửa - SỬA ĐỔI Ở ĐÂY #}
+                                                    <a href="{{ url_for('show_edit_record_form', record_id=record.id, page=page, keyword=keyword, start_date=start_date, end_date=end_date) }}" class="btn btn-primary" title="Chỉnh sửa"><i class="fas fa-edit"></i></a>
+                                                    <button type="button" class="btn btn-danger btn-sm" title="Xóa" data-bs-toggle="modal" data-bs-target="#deleteModal{{ record.id }}"><i class="fas fa-trash-alt"></i></button>
+                                                    {% if record.is_valid_ip_format %} 
+                                                        <a href="{{ url_for('ping_ip', ip_address=record.ip_address) }}" class="btn btn-outline-secondary" title="Ping {{ record.ip_address }} (mở CMD/Terminal)"><i class="fas fa-network-wired"></i></a> 
+                                                    {% endif %}
+                                                </div>
+                                                {# MODAL XÓA THIẾT BỊ (Giữ nguyên) #}
+                                                <div class="modal fade" id="deleteModal{{ record.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ record.id }}" aria-hidden="true">
+                                                    <div class="modal-dialog">
+                                                        <div class="modal-content">
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title" id="deleteModalLabel{{ record.id }}">Xác nhận xóa</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <form action="{{ url_for('delete_record', record_id=record.id) }}" method="post">
+                                                                <input type="hidden" name="page" value="{{ page }}">
+                                                                <input type="hidden" name="keyword" value="{{ keyword or '' }}">
+                                                                <input type="hidden" name="start_date" value="{{ start_date or '' }}">
+                                                                <input type="hidden" name="end_date" value="{{ end_date or '' }}">
+                                                                <div class="modal-body text-start">
+                                                                    <p>Bạn có chắc chắn muốn xóa bản ghi của MAC Address <strong>{{ record.mac_address }}</strong>?</p>
+                                                                    <p class="text-muted small">Hành động này sẽ xóa thông tin thiết bị và các liên kết ảnh khỏi cơ sở dữ liệu.</p>
+                                                                    {% if record.images.count() > 0 %} {# Sửa: record.images là query, cần .count() hoặc .all() #}
+                                                                    <div class="form-check mt-3">
+                                                                        <input class="form-check-input" type="checkbox" value="yes" id="delete_physical_files_{{ record.id }}" name="delete_physical_files" checked>
+                                                                        <label class="form-check-label" for="delete_physical_files_{{ record.id }}">
+                                                                            Đồng thời xóa các file ảnh vật lý liên quan khỏi máy chủ?
+                                                                        </label>
+                                                                    </div>
+                                                                    {% endif %}
+                                                                    <p class="text-danger mt-3">Hành động xóa bản ghi không thể hoàn tác.</p>
+                                                                </div>
+                                                                <div class="modal-footer">
+                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                                                                    <button type="submit" class="btn btn-danger">
+                                                                        <i class="fas fa-trash-alt me-1"></i> Xác nhận Xóa
+                                                                    </button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {# KẾT THÚC MODAL XÓA THIẾT BỊ #}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %} {# Trường hợp không có records #}
+                                        <tr> <td colspan="9" class="text-center text-muted py-3"> {% if keyword or start_date or end_date %} Không tìm thấy thiết bị nào phù hợp. <a href="{{ url_for('index') }}">Xóa bộ lọc?</a> {% else %} Chưa có thiết bị nào. {% endif %} </td> </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div> {# Hết table-responsive #}
+
+                         {# Phân trang (Giữ nguyên) #}
+                         {% if pagination and pagination.pages > 1 %}
+                            <nav aria-label="Page navigation" class="mt-4">
+                                <ul class="pagination justify-content-center"> <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('index', page=1, keyword=keyword, start_date=start_date, end_date=end_date) }}">&laquo;&laquo;</a> </li> <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('index', page=pagination.prev_num, keyword=keyword, start_date=start_date, end_date=end_date) }}">&laquo;</a> </li> {% for p_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %} {% if p_num %} {% if p_num == pagination.page %} <li class="page-item active" aria-current="page"><span class="page-link">{{ p_num }}</span></li> {% else %} <li class="page-item"><a class="page-link" href="{{ url_for('index', page=p_num, keyword=keyword, start_date=start_date, end_date=end_date) }}">{{ p_num }}</a></li> {% endif %} {% else %} <li class="page-item disabled"><span class="page-link">...</span></li> {% endif %} {% endfor %} <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('index', page=pagination.next_num, keyword=keyword, start_date=start_date, end_date=end_date) }}">&raquo;</a> </li> <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('index', page=pagination.pages, keyword=keyword, start_date=start_date, end_date=end_date) }}">&raquo;&raquo;</a> </li> </ul> <p class="text-center text-muted small">Trang {{ pagination.page }} / {{ pagination.pages }} (Tổng cộng {{ pagination.total }} thiết bị)</p>
+                            </nav>
+                          {% endif %}
+                    </div> {# Hết card-body #}
+                </div> {# Hết card #}
+
+                 {# Card IP khả dụng (Giữ nguyên) #}
+                 <div class="card mt-4 shadow-sm">
+                    <div class="card-header bg-info text-white"> <h5 class="card-title mb-0"><i class="fas fa-network-wired me-2"></i>IP khả dụng gần nhất (...)</h5> </div>
+                    <div class="card-body"> {% if available_ips %} <div class="row g-3"> {% for ip in available_ips %} <div class="col-lg col-md-4 col-sm-6"> <div class="card bg-light"> <div class="card-body d-flex justify-content-between align-items-center p-2"> <code class="fs-6 fw-bold me-2">{{ ip }}</code> <a href="{{ url_for('ping_ip', ip_address=ip) }}" class="btn btn-sm btn-outline-primary" title="Ping liên tục (mở CMD/Terminal mới)"> <i class="fas fa-terminal"></i> PING </a> </div> </div> </div> {% endfor %} </div> {% else %} <div class="alert alert-warning mb-0"> Không tìm thấy IP trống... </div> {% endif %} </div>
+                </div>
+
+            </div> {# --- Hết tab-pane records --- #}
+
+            {# --- Khung Nội dung Tab Thêm Thiết bị mới (Giữ nguyên) --- #}
+            <div class="tab-pane fade" id="add-record" role="tabpanel" aria-labelledby="add-record-tab">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white"> <h5 class="mb-0">Thêm Thiết bị mới</h5> </div>
+                    <div class="card-body">
+                        {# --- FORM THÊM MỚI --- #}
+                        <form action="{{ url_for('add_record') }}" method="post" enctype="multipart/form-data">
+                            {# Các hidden input để giữ lại tham số lọc khi redirect sau khi thêm #}
+                            <input type="hidden" name="page" value="{{ request.args.get('page', 1) }}">
+                            <input type="hidden" name="keyword" value="{{ request.args.get('keyword', '') }}">
+                            <input type="hidden" name="start_date" value="{{ request.args.get('start_date', '') }}">
+                            <input type="hidden" name="end_date" value="{{ request.args.get('end_date', '') }}">
+                            
+                            <div class="row g-3 mb-3"> <div class="col-md-6"> <label for="add_mac_address" class="form-label">MAC Address <span class="text-danger">*</span></label> <input type="text" class="form-control" id="add_mac_address" name="mac_address" placeholder="XX-XX-XX-XX-XX-XX" required> </div> <div class="col-md-6"> <label for="add_ip_address" class="form-label">IP Address</label> <input type="text" class="form-control" id="add_ip_address" name="ip_address" placeholder="VD: 192.168.223.100"> </div> </div>
+                            <div class="row g-3 mb-3"> <div class="col-md-4"> <label for="add_username" class="form-label">Username</label> <input type="text" class="form-control" id="add_username" name="username"> </div> <div class="col-md-4"> <label for="add_device_type" class="form-label">Loại Thiết bị</label> <input type="text" class="form-control" id="add_device_type" name="device_type" placeholder="Laptop, PC, Printer..."> </div> <div class="col-md-4"> <label for="add_status" class="form-label">Trạng thái</label> <input type="text" class="form-control" id="add_status" name="status" placeholder="Mới, Đang dùng, Bảo trì..."> </div> </div>
+                            <div class="row g-3 mb-3"> <div class="col-md-6"> <label for="add_record_date" class="form-label">Ngày ghi nhận</label> <input type="date" class="form-control" id="add_record_date" name="record_date"> </div> <div class="col-md-6"> <label for="add_images" class="form-label">Thêm ảnh</label> <input type="file" class="form-control" id="add_images" name="images" multiple accept=".png,.jpg,.jpeg,.gif"> <div class="form-text">Cho phép: PNG, JPG, JPEG, GIF.</div> </div> </div>
+                            <div class="mb-3"> <label for="add_details" class="form-label">Chi tiết</label> <textarea class="form-control" id="add_details" name="details" rows="3"></textarea> </div>
+                            <button type="submit" class="btn btn-success"> <i class="fas fa-save me-1"></i> Lưu Thiết bị </button>
+                        </form>
+                    </div>
+                </div>
+            </div> {# --- Hết tab-pane add-record --- #}
+
+            {# --- Khung Nội dung Tab Nhập từ Excel (Giữ nguyên) --- #}
+            <div class="tab-pane fade" id="import" role="tabpanel" aria-labelledby="import-tab">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white"> <h5 class="mb-0">Nhập dữ liệu từ Excel</h5> </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('import_records') }}" method="post" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="import_file" class="form-label">Chọn file Excel (.xlsx)</label>
+                                <input type="file" class="form-control" id="import_file" name="file" required accept=".xlsx">
+                            </div>
+                            <div class="alert alert-info">
+                                <h5 class="alert-heading">Lưu ý quan trọng:</h5>
+                                <ul>
+                                    <li>File phải có định dạng <strong>.xlsx</strong>. Sheet đầu tiên sẽ được đọc.</li>
+                                    <li>Cột <strong>"MAC Address"</strong> là bắt buộc. Tên cột không phân biệt hoa thường. Nên dùng định dạng <strong>XX-XX-XX-XX-XX-XX</strong>.</li>
+                                    <li>Các cột hỗ trợ: <code>MAC Address</code>, <code>IP Address</code>, <code>Username</code>, <code>Loại thiết bị</code>, <code>Trạng thái</code>, <code>Ngày ghi nhận</code>, <code>Chi tiết</code>, <code>Image Paths</code>.</li>
+                                    <li>Cột <strong>"Image Paths"</strong> (không phân biệt hoa thường) dùng để liệt kê tên các file ảnh, ngăn cách bởi dấu phẩy (<code>,</code>). Ví dụ: <code>anh1.jpg,anh_khac.png</code>.</li>
+                                    <li><strong>Ngày ghi nhận:</strong> Dùng định dạng <code>DD/MM/YYYY</code> hoặc <code>YYYY-MM-DD</code>.</li>
+                                    <li>Nếu MAC Address (đã chuẩn hóa dạng '-') đã tồn tại, bản ghi sẽ được cập nhật. Các liên kết ảnh cũng sẽ được cập nhật theo cột "Image Paths".</li>
+                                </ul>
+                            </div>
+                            <button type="submit" class="btn btn-primary"> <i class="fas fa-file-upload me-1"></i> Tải lên & Nhập </button>
+                        </form>
+                    </div>
+                </div>
+            </div> {# --- Hết tab-pane import --- #}
+
+        </div> {# --- Hết tab-content --- #}
+
+        {# === THÊM MỚI: Modal Xác Nhận Xóa Toàn Bộ Thiết Bị === #}
+        <div class="modal fade" id="deleteAllRecordsModal" tabindex="-1" aria-labelledby="deleteAllRecordsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-danger"> {# Thêm viền đỏ #}
+                    <div class="modal-header bg-danger text-white"> {# Nền đỏ chữ trắng #}
+                        <h5 class="modal-title" id="deleteAllRecordsModalLabel"><i class="fas fa-exclamation-triangle me-2"></i>Xác Nhận Xóa Toàn Bộ Thiết Bị</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button> {# Nút đóng màu trắng #}
+                    </div>
+                    {# Form trỏ đến route xử lý xóa toàn bộ record #}
+                    <form action="{{ url_for('delete_all_records') }}" method="post">
+                        <div class="modal-body">
+                            <p class="text-danger fw-bold">CẢNH BÁO! Hành động này KHÔNG THỂ hoàn tác.</p>
+                            <p>Bạn có chắc chắn muốn xóa <strong>TOÀN BỘ</strong> dữ liệu thiết bị khỏi hệ thống không? Điều này bao gồm tất cả thông tin chi tiết và các liên kết ảnh.</p>
+
+                            {# Trường nhập mật khẩu #}
+                            <div class="mb-3">
+                                <label for="deletePasswordRecords" class="form-label">Nhập mật khẩu xác nhận:</label>
+                                <input type="password" class="form-control" id="deletePasswordRecords" name="password" required autocomplete="current-password">
+                                <div class="form-text">Nhập mật khẩu đã được cấu hình trong file `app.py` để xác nhận xóa.</div>
+                            </div>
+
+                            {# Checkbox xác nhận xóa file vật lý #}
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" value="yes" id="deletePhysicalFilesRecords" name="delete_physical_files">
+                                {# Mặc định KHÔNG chọn checkbox này #}
+                                <label class="form-check-label" for="deletePhysicalFilesRecords">
+                                    <strong>Đồng thời xóa tất cả các file ảnh vật lý liên quan khỏi máy chủ?</strong> (Mặc định là KHÔNG xóa)
+                                </label>
+                                <div class="form-text text-muted">Nếu chọn, tất cả file ảnh trong thư mục `uploads` liên kết với các thiết bị sẽ bị xóa vĩnh viễn. Hãy chắc chắn bạn đã sao lưu nếu cần.</div>
+                            </div>
+
+                            <p class="text-danger">Hãy chắc chắn bạn hiểu rõ hậu quả trước khi tiếp tục.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                            {# Nút xác nhận xóa #}
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash-alt me-1"></i> Xác Nhận Xóa Toàn Bộ
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {# === KẾT THÚC THÊM MỚI === #}
+
+    </div> {# --- Hết container-fluid --- #}
+
+    {# --- Footer --- #}
+    <footer class="mt-5 mb-3 text-center text-muted small"> <p>Hệ thống Quản lý Thiết bị Mạng &copy; {{ now.year }}</p> </footer>
+
+    {# --- Scripts (Giữ nguyên) --- #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Script vẽ biểu đồ (Giữ nguyên)
+        document.addEventListener('DOMContentLoaded', function() {
+            const chartColors = [ 'rgba(54, 162, 235, 0.7)', 'rgba(255, 99, 132, 0.7)', 'rgba(75, 192, 192, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)', 'rgba(108, 117, 125, 0.7)' ];
+            const chartBorderColors = chartColors.map(color => color.replace('0.7', '1'));
+            try { const deviceTypeCanvas = document.getElementById('deviceTypeChart'); const deviceTypeStatsJson = '{{ device_type_stats | tojson | safe if device_type_stats else "{}" }}'; const deviceTypeStats = JSON.parse(deviceTypeStatsJson); if (deviceTypeCanvas && deviceTypeStats && deviceTypeStats.labels && deviceTypeStats.data && deviceTypeStats.labels.length > 0 && typeof deviceTypeStats.total_count === 'number') { new Chart(deviceTypeCanvas, { type: 'bar', data: { labels: deviceTypeStats.labels, datasets: [{ label: 'Số lượng', data: deviceTypeStats.data, backgroundColor: chartColors.slice(0, deviceTypeStats.data.length), borderColor: chartBorderColors.slice(0, deviceTypeStats.data.length), borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { stepSize: 1, callback: function(value) { if (Number.isInteger(value)) { return value; } } } } }, plugins: { legend: { display: false }, title: { display: true, text: `Tổng: ${deviceTypeStats.total_count || '0'} thiết bị`, padding: { top: 5, bottom: 10 }, font: { weight: 'bold' } }, tooltip: { callbacks: { label: function(context) { const label = context.label || ''; const value = context.raw || 0; return `${label}: ${value}`; } } } } } }); } else { console.warn("Canvas 'deviceTypeChart' hoặc dữ liệu device_type_stats không hợp lệ (bao gồm total_count)."); if (deviceTypeCanvas) deviceTypeCanvas.parentNode.innerHTML = '<p class="text-warning small text-center mt-2">Không có dữ liệu thống kê loại thiết bị.</p>'; } } catch (e) { console.error("Lỗi biểu đồ Device Type:", e); const chartDiv = document.getElementById('deviceTypeChart'); if (chartDiv) chartDiv.parentNode.innerHTML = '<p class="text-danger small text-center mt-2">Lỗi tải dữ liệu biểu đồ loại thiết bị.</p>'; }
+            try { const ipStatsJson = '{{ ip_stats | tojson | safe if ip_stats else "{}" }}'; const ipStats = JSON.parse(ipStatsJson); if (ipStats && typeof ipStats.total_used === 'number' && typeof ipStats.total_free === 'number') { const ctx2 = document.getElementById('ipUsageChart'); if (ctx2) { new Chart(ctx2.getContext('2d'), { type: 'pie', data: { labels: ['IP Đã Sử Dụng', 'IP Còn Trống'], datasets: [{ label: 'Số lượng IP', data: [ipStats.total_used, ipStats.total_free], backgroundColor: ['rgba(220, 53, 69, 0.7)', 'rgba(40, 167, 69, 0.7)'], borderColor: ['rgba(220, 53, 69, 1)', 'rgba(40, 167, 69, 1)'], borderWidth: 1, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 15 } }, title: { display: true, text: `Tổng: ${ipStats.total_used + ipStats.total_free} IP`, padding: { top: 5, bottom: 10 }, font: { weight: 'bold' } }, tooltip: { callbacks: { label: function(context) { const label = context.label || ''; const value = context.raw || 0; const total = ipStats.total_used + ipStats.total_free; const percentage = (total > 0) ? Math.round((value / total) * 100) : 0; return `${label}: ${value} (${percentage}%)`; } } } } } }); } else { console.warn("Canvas 'ipUsageChart' không tìm thấy."); } } else { console.warn("Dữ liệu ipStats không hợp lệ hoặc thiếu."); const chartDiv = document.getElementById('ipUsageChart'); if (chartDiv) chartDiv.parentNode.innerHTML = '<p class="text-warning small text-center mt-2">Không có dữ liệu biểu đồ IP.</p>'; } } catch (e) { console.error("Lỗi biểu đồ IP Usage:", e); const chartDiv = document.getElementById('ipUsageChart'); if (chartDiv) chartDiv.parentNode.innerHTML = '<p class="text-danger small text-center mt-2">Lỗi tải dữ liệu biểu đồ IP.</p>'; }
+            try { const activityCanvas = document.getElementById('workLogActivityChart'); if (activityCanvas) { const activityDataJson = '{{ work_log_summary.activity_data | tojson | safe if work_log_summary and work_log_summary.activity_data else "[]" }}'; const activityData = JSON.parse(activityDataJson); if (activityData && Array.isArray(activityData) && activityData.length > 0) { const labels = activityData.map(item => item.activity_type); const data = activityData.map(item => item.count); const backgroundColors = chartColors.slice(0, data.length); const borderColors = chartBorderColors.slice(0, data.length); new Chart(activityCanvas, { type: 'pie', data: { labels: labels, datasets: [{ label: 'Số lượng HĐ', data: data, backgroundColor: backgroundColors, borderColor: borderColors, borderWidth: 1, hoverOffset: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 15 } }, title: { display: false }, tooltip: { callbacks: { label: function(context) { const label = context.label || ''; const value = context.raw || 0; return `${label}: ${value}`; } } } } } }); } else { activityCanvas.parentNode.innerHTML = '<p class="text-muted small text-center mt-2">Không có hoạt động nào trong tháng này.</p>'; } } else { console.warn("Canvas 'workLogActivityChart' không tìm thấy."); } } catch(e) { console.error("Lỗi biểu đồ Work Log Activity:", e); const chartDiv = document.getElementById('workLogActivityChart'); if (chartDiv) chartDiv.parentNode.innerHTML = '<p class="text-danger small text-center mt-2">Lỗi tải dữ liệu biểu đồ hoạt động.</p>'; }
+        });
+    </script>
+
+</body>
+</html>

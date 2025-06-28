@@ -1,0 +1,93 @@
+{# === view_images.html (Thêm nút Export Lịch sử & Sửa link Chỉnh sửa) === #}
+{% extends 'base.html' %}
+
+{% block title %}Chi tiết Thiết bị #{{ record.id }} - {{ record.mac_address }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    {# --- Hiển thị Flash Messages --- #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    
+
+    {# --- Card Thông tin chi tiết Thiết bị --- #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header"> <i class="bi bi-info-circle-fill me-2"></i>Thông tin chi tiết </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">MAC Address:</dt> <dd class="col-sm-9"><code>{{ record.mac_address }}</code></dd>
+                <dt class="col-sm-3">IP Address:</dt> <dd class="col-sm-9">{{ record.ip_address if record.ip_address else '(Trống)' }}</dd>
+                <dt class="col-sm-3">Username:</dt> <dd class="col-sm-9">{{ record.username if record.username else '(Trống)' }}</dd>
+                <dt class="col-sm-3">Loại Thiết bị:</dt> <dd class="col-sm-9">{{ record.device_type if record.device_type else '(Trống)' }}</dd>
+                <dt class="col-sm-3">Trạng thái:</dt> <dd class="col-sm-9">{{ record.status | nl2br if record.status else '(Trống)' }}</dd>
+                <dt class="col-sm-3">Ngày ghi nhận:</dt> <dd class="col-sm-9">{{ record.record_date_display if record.record_date_display else '(Trống)' }}</dd>
+                <dt class="col-sm-3">Chi tiết:</dt> <dd class="col-sm-9">{{ record.details | nl2br if record.details else '(Trống)' }}</dd>
+            </dl>
+        </div>
+         <div class="card-footer bg-light text-end">
+             <a href="{{ url_for('index', page=page, keyword=keyword, start_date=start_date, end_date=end_date) }}" class="btn btn-sm btn-secondary me-2"> <i class="bi bi-arrow-left-circle me-1"></i> Quay lại Danh sách </a>
+             {# SỬA ĐỔI Ở ĐÂY: Trỏ đến 'show_edit_record_form' #}
+             <a href="{{ url_for('show_edit_record_form', record_id=record.id, page=page, keyword=keyword, start_date=start_date, end_date=end_date) }}" class="btn btn-sm btn-primary"> <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa Thiết bị </a>
+         </div>
+    </div>
+
+    {# --- Khu vực Hiển thị Ảnh --- #}
+    <h2 class="mb-3"><i class="bi bi-images me-2"></i>Ảnh đính kèm</h2>
+    {% if images %}
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 mb-4">
+            {% for image in images %}
+            <div class="col"> 
+                <div class="card h-100 shadow-sm"> 
+                    <a href="{{ url_for('uploaded_file', filename=image.image_path) }}" target="_blank" title="Xem ảnh kích thước đầy đủ"> 
+                        <img src="{{ url_for('uploaded_file', filename=image.image_path) }}" class="card-img-top img-fluid" alt="Ảnh {{ loop.index }}" style="height: 200px; object-fit: cover;"> 
+                    </a> 
+                </div> 
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-light" role="alert"> Bản ghi này không có ảnh nào được đính kèm. </div>
+    {% endif %}
+
+    {# --- Khu vực Lịch Sử Công Việc --- #}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center"> {# Thêm flex để chứa nút export #}
+            <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Lịch Sử Công Việc Cho Thiết Bị (Gần nhất)</h5>
+            {# NÚT EXPORT MỚI CHO LỊCH SỬ THIẾT BỊ NÀY #}
+            {% if device_logs %} {# Chỉ hiện nút nếu có log #}
+            <a href="{{ url_for('export_device_work_logs', mac_address=record.mac_address) }}" class="btn btn-sm btn-outline-success">
+                <i class="fas fa-file-excel me-1"></i> Xuất Lịch sử (Excel)
+            </a>
+            {% endif %}
+             {# KẾT THÚC NÚT EXPORT MỚI #}
+        </div>
+        <div class="card-body p-0">
+            {% if device_logs %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 align-middle table-work-log">
+                        <thead class="table-light"> <tr> <th style="width: 12%;">Ngày</th> <th style="width: 20%;">Loại Hoạt Động</th> <th>Mô Tả</th> <th style="width: 12%;" class="text-end">Chi Phí</th> <th style="width: 15%;">Người Thực Hiện</th> </tr> </thead>
+                        <tbody> {% for log in device_logs %} <tr> <td>{{ log.log_date_display }}</td> <td>{{ log.activity_type }}</td> <td>{{ log.description | nl2br | truncate(100, True) if log.description else '' }}</td> <td class="text-end cost-value">{{ log.cost | currency_format }}</td> <td>{{ log.technician or '' }}</td> </tr> {% endfor %} </tbody>
+                    </table>
+                </div>
+             {% else %}
+                <p class="text-muted p-3 mb-0">Không có lịch sử công việc nào được ghi nhận cho thiết bị này.</p> {# Sửa lại câu chữ #}
+             {% endif %}
+        </div>
+         <div class="card-footer bg-light text-end">
+             <a href="{{ url_for('work_log', keyword=record.mac_address) }}" class="btn btn-sm btn-outline-info"> <i class="bi bi-search me-1"></i> Xem Đầy Đủ Lịch Sử Công Việc </a>
+         </div>
+    </div>
+    {# --- Kết thúc Khu vực Lịch Sử Công Việc --- #}
+
+</div> {# Kết thúc container #}
+{% endblock %}

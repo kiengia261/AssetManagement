@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Chi Tiết Thẻ: {{ card.card_number }}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .detail-label {
+        font-weight: bold;
+        color: #555;
+    }
+    .detail-value {
+        margin-bottom: 0.5rem;
+    }
+    .card-details-container {
+        background-color: #fff;
+        padding: 2rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+    .details-section {
+        white-space: pre-wrap; /* Giữ nguyên định dạng xuống dòng và khoảng trắng */
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        border: 1px solid #e9ecef;
+        max-height: 400px; /* Giới hạn chiều cao, thêm thanh cuộn nếu cần */
+        overflow-y: auto;   /* Thêm thanh cuộn dọc nếu nội dung dài */
+    }
+    /* Thêm CSS cho các badge nếu chưa có trong base.html hoặc static/style.css */
+    .badge-available {
+        background-color: #198754; /* Bootstrap success color */
+        color: white;
+    }
+    .badge-using {
+        background-color: #ffc107; /* Bootstrap warning color */
+        color: #000;
+    }
+    .badge-lost { /* CSS cho badge Lost */
+        background-color: #dc3545; /* Bootstrap danger color */
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Chi Tiết Thẻ: <code>{{ card.card_number }}</code></h2>
+        <a href="{{ url_for('card_management_index', 
+                            page=current_filters.page, 
+                            keyword=current_filters.keyword, 
+                            department=current_filters.department, 
+                            status=current_filters.status, 
+                            issue_date_start=current_filters.issue_date_start, 
+                            issue_date_end=current_filters.issue_date_end) }}" 
+           class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i> Quay Lại Danh Sách
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card-details-container">
+        <div class="row">
+            <div class="col-md-6">
+                <p><span class="detail-label">Số Thẻ:</span><br><span class="detail-value"><code>{{ card.card_number }}</code></span></p>
+                <p><span class="detail-label">Bộ Phận:</span><br><span class="detail-value">{{ card.department }}</span></p>
+                <p><span class="detail-label">Trạng Thái:</span><br>
+                    <span class="detail-value">
+                        {% if card.status == 'Using' %}
+                            <span class="badge badge-using">Using</span>
+                        {% elif card.status == 'Available' %}
+                            <span class="badge badge-available">Available</span>
+                        {% elif card.status == 'Lost' %} {# Cập nhật để hiển thị badge Lost #}
+                            <span class="badge badge-lost">Lost</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ card.status }}</span>
+                        {% endif %}
+                    </span>
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p><span class="detail-label">UserID Người Được Cấp:</span><br><span class="detail-value">{{ card.user_id_assigned or 'N/A' }}</span></p>
+                <p><span class="detail-label">UserName Người Được Cấp:</span><br><span class="detail-value">{{ card.user_name_assigned or 'N/A' }}</span></p>
+                <p><span class="detail-label">Ngày Cấp:</span><br><span class="detail-value">{{ card.issue_date_display or 'N/A' }}</span></p>
+            </div>
+        </div>
+        <hr>
+        <div>
+            <h5 class="mb-2">Chi Tiết và Nhật Ký Sử Dụng:</h5>
+            <div class="details-section">
+                {{ card.details | nl2br if card.details else 'Không có thông tin chi tiết hoặc nhật ký.' }}
+            </div>
+        </div>
+        <hr>
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <p class="small text-muted"><span class="detail-label">Ngày Tạo:</span> {{ card.created_at.strftime('%d/%m/%Y %H:%M:%S') if card.created_at else 'N/A' }}</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <p class="small text-muted"><span class="detail-label">Cập Nhật Lần Cuối:</span> {{ card.updated_at.strftime('%d/%m/%Y %H:%M:%S') if card.updated_at else 'N/A' }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

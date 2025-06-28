@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+
+{% block title %}Biểu đồ Mua Ròng Nước Ngoài{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<style>
+    .chart-container-wrapper {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    .chart-canvas-container {
+        position: relative;
+        margin: auto;
+        width: 100%;
+    }
+    .line-chart-container {
+        height: 50vh; 
+        min-height: 350px;
+    }
+    .bar-chart-container { 
+        height: 48vh; 
+        min-height: 320px;
+        margin-top: 25px;
+    }
+    .filter-form .form-label {
+        font-size: 0.85rem; 
+        margin-bottom: .25rem;
+    }
+    .filter-form .form-select, .filter-form .btn, .filter-form .form-check-label, 
+    .filter-form .form-check-input, .filter-form .form-control {
+        font-size: 0.85rem; 
+    }
+    .chart-title {
+        color: #343a40;
+        font-size: 1.4rem; 
+    }
+    .sub-chart-title {
+        color: #495057;
+        font-size: 1.0rem; 
+        margin-top: 15px;
+        margin-bottom: 8px;
+        text-align: center;
+        font-weight: 600;
+    }
+    .view-mode-selector .form-check {
+        margin-right: 10px; 
+    }
+    #custom_symbols_input_div {
+        transition: opacity 0.3s ease-in-out;
+    }
+    .form-text-small {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    /* CSS cho legend mặc định của Chart.js nếu cần tùy chỉnh thêm */
+    /* Ví dụ: .chartjs-legend {} */
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="chart-container-wrapper">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="mb-0 chart-title">Phân Tích Giao Dịch Khối Ngoại</h1>
+            <a href="{{ url_for('stock_journal') }}" class="btn btn-outline-secondary btn-sm py-1 px-2">
+                <i class="bi bi-arrow-left-circle"></i> Về Trang CK
+            </a>
+        </div>
+        <p class="text-muted small mb-3">
+            Hiển thị dữ liệu mua ròng từ ngày <strong>{{ start_date_display }}</strong> đến <strong>{{ end_date_display }}</strong> ({{ days_shown }} ngày). Đơn vị: Tỷ VNĐ.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category | replace('error', 'danger') }} alert-dismissible fade show small py-2 px-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close btn-sm py-1" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="GET" action="{{ url_for('foreign_investment_charts') }}" class="mb-4 filter-form">
+            <div class="row gx-2 gy-2 align-items-end">
+                <div class="col-md-2 col-sm-4">
+                    <label for="days_select" class="form-label fw-bold">Số ngày:</label>
+                    <select name="days" id="days_select" class="form-select form-select-sm">
+                        <option value="7" {% if days_shown == 7 %}selected{% endif %}>1 Tuần</option>
+                        <option value="14" {% if days_shown == 14 %}selected{% endif %}>2 Tuần</option>
+                        <option value="30" {% if days_shown == 30 %}selected{% endif %}>1 Tháng</option>
+                        <option value="60" {% if days_shown == 60 %}selected{% endif %}>2 Tháng</option>
+                        <option value="90" {% if days_shown == 90 %}selected{% endif %}>3 Tháng</option>
+                        <option value="180" {% if days_shown == 180 %}selected{% endif %}>6 Tháng</option>
+                        <option value="365" {% if days_shown == 365 %}selected{% endif %}>365N</option>
+                    </select>
+                </div>
+                <div class="col-md-4 col-sm-8">
+                    <label class="form-label fw-bold">Nhóm mã cho biểu đồ đường:</label>
+                    <div class="view-mode-selector">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="view_mode" id="view_mode_user" value="user_held" {% if current_view_mode == 'user_held' %}checked{% endif %}>
+                            <label class="form-check-label" for="view_mode_user">Mã theo dõi</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="view_mode" id="view_mode_vn100" value="vn100" {% if current_view_mode == 'vn100' %}checked{% endif %}>
+                            <label class="form-check-label" for="view_mode_vn100">VN100</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-9" id="custom_symbols_input_div">
+                    <label for="custom_symbols_input" class="form-label fw-bold">Mã tùy chỉnh (biểu đồ đường):</label>
+                    <input type="text" name="custom_symbols" id="custom_symbols_input" class="form-control form-control-sm" value="{{ current_custom_symbols if current_custom_symbols is not none else '' }}" placeholder="VD: FPT,HPG,VCB">
+                    <div class="form-text-small">Nhập mã cách nhau bằng dấu phẩy. Ưu tiên nếu chọn "Mã theo dõi". Nếu chọn "VN100", sẽ lọc trong VN100.</div>
+                </div>
+                <div class="col-md-2 col-sm-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-search"></i> Lọc
+                    </button>
+                </div>
+            </div>
+        </form>
+        
+        {% if current_view_mode == 'vn100' %}
+        {% endif %}
+
+        {% if missing_data_message and (not line_chart_data or not line_chart_data.datasets or line_chart_data.datasets | length == 0) %}
+            <div class="missing-data-notice {% if 'Lưu ý:' in missing_data_message or 'lỗi' in missing_data_message.lower() or 'Không thể tải' in missing_data_message %}alert-warning{% else %}alert-info{% endif %} small py-2 px-3" role="alert">
+                {{ missing_data_message | safe }}
+            </div>
+        {% endif %}
+
+        {# Biểu đồ Đường #}
+        {% if line_chart_data and line_chart_data.datasets and line_chart_data.datasets | length > 0 %}
+            <h3 class="sub-chart-title">Diễn biến mua ròng theo mã ({% if current_view_mode == 'vn100'%}VN100{% if current_custom_symbols %} - Lọc tùy chỉnh{% endif %}{% elif current_custom_symbols %}Tùy chỉnh{% else %}Đang theo dõi{% endif %})</h3>
+            {# Đã xóa div#foreignNetBuyingLineChartLegendContainer #}
+            <div class="chart-canvas-container line-chart-container">
+                <canvas id="foreignNetBuyingLineChart"></canvas>
+            </div>
+        {% elif not missing_data_message %}
+            <div class="alert alert-info no-data-alert small py-2 px-3" role="alert">
+                <h6 class="alert-heading mb-1"><i class="bi bi-info-circle-fill me-1"></i>Không có dữ liệu cho biểu đồ đường</h6>
+                Không tìm thấy dữ liệu GDNN cho nhóm mã đã chọn trong khoảng <strong>{{ days_shown }}</strong> ngày.
+            </div>
+        {% endif %}
+
+        {# Biểu đồ Cột Chi Tiết Từng Mã #}
+        {% if bar_chart_individual_data and bar_chart_individual_data.labels and bar_chart_individual_data.labels | length > 0 %}
+            <h3 class="sub-chart-title">Tổng mua ròng từng mã trong kỳ ({% if current_view_mode == 'vn100'%}VN100{% if current_custom_symbols %} - Lọc tùy chỉnh{% endif %}{% elif current_custom_symbols %}Tùy chỉnh{% else %}Đang theo dõi{% endif %})</h3>
+            <div class="chart-canvas-container bar-chart-container">
+                <canvas id="individualSymbolsBarChart"></canvas>
+            </div>
+        {% else %}
+            <div class="alert alert-light mt-3 text-center small py-2 px-3" role="alert">
+                Không có dữ liệu tổng hợp mua ròng chi tiết từng mã trong kỳ này.
+                {% if current_view_mode == 'user_held' or current_view_mode == 'vn100' %}
+                 Hãy thử <a href="#" class="alert-link" onclick="event.preventDefault(); document.getElementById('updateForeignDataForm').submit(); return false;">cập nhật dữ liệu mới nhất</a>.
+                <form id="updateForeignDataForm" action="{{ url_for('update_foreign_data') }}" method="POST" style="display: none;"></form>
+                {% endif %}
+            </div>
+        {% endif %}
+        {# Đã xóa biểu đồ cột tổng hợp #}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const numberFormatter = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function formatYAxisTicks(value, unit = ' tỷ') {
+        if (value === 0 && arguments.length > 2 && arguments[2].length <=3) return '0'; 
+        if (Math.abs(value) < 0.01 && value !== 0) return value.toExponential(1) + unit;
+        return numberFormatter.format(value) + unit;
+    }
+
+    function formatLineChartTooltipLabel(context, unit = ' tỷ VNĐ') {
+        let label = context.dataset.label || ''; 
+        if (label) { label += ': '; }
+        if (context.parsed.y !== null && typeof context.parsed.y !== 'undefined') {
+            label += numberFormatter.format(context.parsed.y) + unit;
+        }
+        return label;
+    }
+
+    function formatBarChartTooltipLabel(context, unit = ' tỷ VNĐ') {
+        let symbolLabel = context.label || ""; 
+        let value = context.raw; 
+        
+        if (typeof value === 'number') {
+            return `${symbolLabel}: ${numberFormatter.format(value)} ${unit}`;
+        }
+        return `${symbolLabel}: N/A`;
+    }
+
+    {% if line_chart_data and line_chart_data.datasets and line_chart_data.datasets | length > 0 %}
+    const lineCtx = document.getElementById('foreignNetBuyingLineChart').getContext('2d');
+    const lineChartRawData = {{ line_chart_data | tojson | safe }};
+    
+    const foreignNetBuyingLineChart = new Chart(lineCtx, {
+        type: 'line',
+        data: lineChartRawData,
+        options: {
+            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: { beginAtZero: false, title: { display: true, text: 'Giá trị Mua Ròng (Tỷ VNĐ)', font: { size: 11 } }, ticks: { callback: (value, i, values) => formatYAxisTicks(value, ' tỷ', values), font: { size: 8 } }, grid: { color: 'rgba(200,200,200,0.15)' } },
+                x: { title: { display: true, text: 'Ngày', font: { size: 11 } }, ticks: { font: { size: 8 }, maxRotation: 45, minRotation: 0 }, grid: { display: false } }
+            },
+            plugins: {
+                legend: { 
+                    display: false, // Bật legend mặc định
+                    position: 'top',
+                    labels: { 
+                        usePointStyle: true, 
+                        padding: 10, 
+                        font: { size: 9 },
+                        boxWidth: 8, 
+                        boxHeight: 8
+                    }
+                }, 
+                tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', titleFont: {size:11}, bodyFont: {size:9}, padding: 7, 
+                           callbacks: { label: (context) => formatLineChartTooltipLabel(context) }
+                         },
+                title: { display: false }
+            },
+            elements: { line: { borderWidth: 1.2 }, point: { radius: 1.8, hoverRadius: 3.5 } }
+        }
+    });
+    // Đã xóa JavaScript cho legend tùy chỉnh và nút toggleAllLineChartButtonNew
+    {% endif %}
+
+    {% if bar_chart_individual_data and bar_chart_individual_data.labels and bar_chart_individual_data.labels | length > 0 %}
+    const individualBarCtx = document.getElementById('individualSymbolsBarChart').getContext('2d');
+    const individualBarData = {{ bar_chart_individual_data | tojson | safe }};
+    const individualBarColors = individualBarData.data.map(value => value >= 0 ? 'rgba(75, 192, 192, 0.6)' : 'rgba(255, 99, 132, 0.6)');
+    const individualBarBorderColors = individualBarData.data.map(value => value >= 0 ? 'rgb(75, 192, 192)' : 'rgb(255, 99, 132)');
+
+    const individualSymbolsBarChart = new Chart(individualBarCtx, {
+        type: 'bar',
+        data: {
+            labels: individualBarData.labels,
+            datasets: [{
+                label: 'Tổng Mua Ròng Trong Kỳ (Tỷ VNĐ)',
+                data: individualBarData.data,
+                backgroundColor: individualBarColors,
+                borderColor: individualBarBorderColors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y', 
+            scales: {
+                y: { ticks: { font: { size: 8 } }, grid: { display: false } }, 
+                x: { beginAtZero: true, title: { display: true, text: 'Tổng Mua Ròng (Tỷ VNĐ)', font: { size: 11 } }, ticks: { callback: (value,i,values) => formatYAxisTicks(value,' tỷ',values), font: { size: 8 } }, grid: { color: 'rgba(200,200,200,0.15)' } }
+            },
+            plugins: {
+                legend: { display: false }, 
+                tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', titleFont: {size:11}, bodyFont: {size:9}, padding: 7,
+                    callbacks: { 
+                        label: (context) => formatBarChartTooltipLabel(context) 
+                    }
+                },
+                title: { display: false }
+            }
+        }
+    });
+    {% endif %}
+
+    // Đã xóa JavaScript cho overallSummaryNetBuyingBarChart
+
+    const viewModeUserRadio = document.getElementById('view_mode_user');
+    const viewModeVn100Radio = document.getElementById('view_mode_vn100');
+    
+    function toggleCustomSymbolsInput() {
+        // No longer hiding/showing custom input based on radio
+    }
+    if (viewModeUserRadio) viewModeUserRadio.addEventListener('change', toggleCustomSymbolsInput);
+    if (viewModeVn100Radio) viewModeVn100Radio.addEventListener('change', toggleCustomSymbolsInput);
+    toggleCustomSymbolsInput(); 
+});
+</script>
+{% endblock %}

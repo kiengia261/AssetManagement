@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Chi tiết Công Việc #{{ log.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    {# --- Hiển thị Flash Messages (nếu có redirect về đây với flash) --- #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category if category in ['success', 'warning', 'danger', 'info'] else 'secondary' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {# --- Card Thông tin chi tiết Công việc --- #}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="bi bi-info-circle-fill me-2"></i>Thông tin chi tiết Công Việc #{{ log.id }}</h5>
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Ngày Thực Hiện:</dt>
+                <dd class="col-sm-9">{{ log.log_date_display or '(Chưa có)' }}</dd>
+
+                <dt class="col-sm-3">Loại Hoạt Động:</dt>
+                <dd class="col-sm-9">{{ log.activity_type or '(Chưa có)' }}</dd>
+
+                <dt class="col-sm-3">Định Danh Thiết Bị:</dt>
+                <dd class="col-sm-9">
+                    {% if log.device_identifier %}
+                        <code>{{ log.device_identifier }}</code>
+                    {% else %}
+                        <span class="text-muted">(Không có)</span>
+                    {% endif %}
+                </dd>
+
+                <dt class="col-sm-3">Mô Tả Chi Tiết:</dt>
+                <dd class="col-sm-9">{{ log.description | nl2br or '(Không có)' }}</dd>
+
+                <dt class="col-sm-3">Chi Phí:</dt>
+                <dd class="col-sm-9 cost-value">{{ log.cost | currency_format }}</dd>
+
+                <dt class="col-sm-3">Nhà Cung Cấp/Người Thực Hiện:</dt>
+                <dd class="col-sm-9">{{ log.technician or '(Không có)' }}</dd>
+
+                <dt class="col-sm-3">Thời Gian Tạo Log:</dt>
+                <dd class="col-sm-9">{{ log.created_at.strftime('%d/%m/%Y %H:%M:%S') if log.created_at else '(Không có)' }}</dd>
+            </dl>
+        </div>
+         <div class="card-footer bg-light text-end">
+             <a href="{{ url_for('work_log', log_page=request.args.get('log_page', 1), start_date_filter=request.args.get('start_date_filter', ''), end_date_filter=request.args.get('end_date_filter', ''), keyword=request.args.get('keyword', '')) }}" class="btn btn-sm btn-secondary me-2">
+                 <i class="bi bi-arrow-left-circle me-1"></i> Quay lại Danh sách
+             </a>
+             <a href="{{ url_for('edit_work_log', log_id=log.id, log_page=request.args.get('log_page', 1), start_date_filter=request.args.get('start_date_filter', ''), end_date_filter=request.args.get('end_date_filter', ''), keyword=request.args.get('keyword', '')) }}" class="btn btn-sm btn-primary">
+                 <i class="bi bi-pencil-square me-1"></i> Chỉnh sửa Công việc
+             </a>
+         </div>
+    </div>
+
+    {# --- Khu vực Hiển thị Ảnh Đính Kèm --- #}
+    <h3 class="mb-3"><i class="bi bi-images me-2"></i>Ảnh Đính Kèm</h3>
+    {% if log.images %}
+        {% if log.images | length > 1 %}
+            {# --- Bootstrap Carousel cho nhiều ảnh --- #}
+            {# SỬA ĐỔI Ở ĐÂY: Loại bỏ data-bs-ride="carousel" để không tự chạy #}
+            <div id="logImageCarousel" class="carousel slide shadow-sm rounded border" data-bs-interval="false">
+                {# Indicators #}
+                <div class="carousel-indicators">
+                    {% for image in log.images %}
+                        <button type="button" data-bs-target="#logImageCarousel" data-bs-slide-to="{{ loop.index0 }}" class="{{ 'active' if loop.first }}" aria-current="{{ 'true' if loop.first }}" aria-label="Slide {{ loop.index }}"></button>
+                    {% endfor %}
+                </div>
+
+                {# Slides #}
+                <div class="carousel-inner rounded">
+                    {% for image in log.images %}
+                    <div class="carousel-item {{ 'active' if loop.first }}">
+                        <a href="{{ url_for('uploaded_file', filename=image.image_path) }}" target="_blank" title="Xem ảnh gốc">
+                            <img src="{{ url_for('uploaded_file', filename=image.image_path) }}" class="d-block w-100" alt="Ảnh công việc {{ loop.index }}" style="max-height: 600px; object-fit: contain; background-color: #e9ecef;">
+                        </a>
+                        <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded px-2 py-1">
+                            <p class="mb-0 small">Ảnh {{ loop.index }} / {{ log.images | length }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {# Controls #}
+                <button class="carousel-control-prev" type="button" data-bs-target="#logImageCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true" style="filter: invert(1) grayscale(100) brightness(2);"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#logImageCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true" style="filter: invert(1) grayscale(100) brightness(2);"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
+            {# --- Kết thúc Carousel --- #}
+
+        {% elif log.images | length == 1 %}
+            {# --- Hiển thị một ảnh --- #}
+            <div class="text-center p-3 border rounded shadow-sm bg-light">
+                <a href="{{ url_for('uploaded_file', filename=log.images[0].image_path) }}" target="_blank" title="Xem ảnh gốc">
+                    <img src="{{ url_for('uploaded_file', filename=log.images[0].image_path) }}" class="img-fluid rounded" alt="Ảnh đính kèm" style="max-height: 600px; object-fit: contain;">
+                </a>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-light text-center" role="alert">
+            <i class="bi bi-image-alt me-2 fs-4 align-middle"></i> Công việc này không có ảnh nào được đính kèm.
+        </div>
+    {% endif %}
+    {# --- Kết thúc Khu vực Hiển thị Ảnh --- #}
+
+</div> {# Kết thúc container #}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }} {# Để kế thừa các script từ base.html nếu có #}
+<style>
+    .cost-value {
+        font-weight: 500;
+        color: var(--bs-success);
+    }
+    /* Đảm bảo carousel controls dễ nhìn trên các ảnh khác nhau */
+    .carousel-control-prev-icon,
+    .carousel-control-next-icon {
+        background-color: rgba(0, 0, 0, 0.3); /* Nền mờ cho icon */
+        border-radius: 50%;
+        padding: 10px; /* Tăng vùng click */
+    }
+    .carousel-control-prev, .carousel-control-next {
+        width: 5%; /* Giảm chiều rộng của vùng click control */
+    }
+    .carousel-item img {
+        border: 1px solid #ddd; /* Thêm viền nhẹ cho ảnh trong carousel */
+    }
+</style>
+{% endblock %}
